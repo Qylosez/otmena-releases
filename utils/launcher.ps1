@@ -464,6 +464,16 @@ switch ($Action) {
         $zapret = Start-ZapretFailover
         & (Join-Path $PSScriptRoot 'update-cursor-exclude.ps1') 2>$null | Out-Null
         $telegram = Start-TelegramFailover
+        # Route Cursor (UI + all models) through the encrypted Poland tunnel.
+        # Only when the local xray HTTP inbound is actually up, so we never
+        # point Cursor at a dead proxy and cut it off from the internet.
+        if (Test-PortListen 10809) {
+            Write-Info 'Cursor cherez shifrovannyj tunnel (vyhod Polsha)...'
+            & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Quiet:$Quiet 2>$null | Out-Null
+            Write-Ok 'Cursor -> 127.0.0.1:10809 (Europe). Perezapusti Cursor.'
+        } else {
+            Write-Warn 'Tunnel (10809) ne podnyalsya - Cursor ostayotsya napryamuyu.'
+        }
         if (-not $Quiet) {
             Show-Status
             if (-not $zapret) {
@@ -475,6 +485,7 @@ switch ($Action) {
     }
     'stop' {
         Write-Info 'Ostanovka...'
+        & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Disable -Quiet:$Quiet 2>$null | Out-Null
         Stop-Winws
         Stop-TelegramLocal
         & (Join-Path $PSScriptRoot 'disable-system-proxy.ps1')

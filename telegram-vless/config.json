@@ -16,6 +16,33 @@
         "enabled": true,
         "destOverride": ["http", "tls", "quic"]
       }
+    },
+    {
+      "tag": "http-cursor",
+      "listen": "127.0.0.1",
+      "port": 10809,
+      "protocol": "http",
+      "settings": {
+        "allowTransparent": false
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    },
+    {
+      "tag": "socks-cursor",
+      "listen": "127.0.0.1",
+      "port": 10810,
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
     }
   ],
   "outbounds": [
@@ -57,14 +84,14 @@
     }
   ],
   "routing": {
-    "domainStrategy": "AsIs",
+    "domainStrategy": "IPIfNonMatch",
     "rules": [
       {
         "type": "field",
-        "network": "tcp,udp",
+        "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],
         "outboundTag": "proxy"
       }
     ]
   },
-  "remarks": "web-t.lyap@bk.ru-0 | Poland | TG only via local SOCKS 10808"
+  "remarks": "Otmena | Poland (Warsaw) Reality | TG SOCKS 10808 + Cursor/AI HTTP 10809 / SOCKS 10810"
 }
