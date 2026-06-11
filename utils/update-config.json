@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "githubRepo": "Qylosez/otmena-releases",
+  "githubToken": "",
+  "baseUrl": "",
+  "versionFile": "version.txt",
+  "packageFile": "Otmena-update.zip",
+  "xrayZipFile": "xray-windows-64.zip",
+  "notes": "Канал обновлений Otmena. В Releases нужен xray-windows-64.zip для автоустановки xray."
+}
