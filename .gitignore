@@ -1,0 +1,15 @@
+# Build artifacts
+Otmena.exe
+
+# Third-party redistributable binaries (shipped via release zips, not source)
+bin/*.exe
+bin/*.sys
+bin/*.dll
+bin/*.bin
+telegram-vless/bin/xray.exe
+telegram-vless/bin/*.exe
+
+# Runtime state / logs
+telegram-vless/*.pid
+telegram-vless/*.log
+utils/*.log
