@@ -1,0 +1,3 @@
+Otmena build 1.0.8
+Date: 2026-06-01 14:33:30
+Includes: MTProto LiteralPath fix, auto xray install, GitHub updates, UTF8 logs

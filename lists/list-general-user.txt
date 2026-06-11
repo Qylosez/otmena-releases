@@ -1,0 +1,1 @@
+# User hostlist for zapret (Discord/YouTube). Telegram uses VLESS separately.
