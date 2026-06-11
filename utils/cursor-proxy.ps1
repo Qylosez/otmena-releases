@@ -50,15 +50,27 @@ if ($settings) {
     foreach ($p in $settings.PSObject.Properties) { $map[$p.Name] = $p.Value }
 }
 
+# Keys we manage. Notes on why:
+#  http.proxySupport = "override"  -> FORCE every request through the proxy. With "on"
+#       Cursor may try a direct connection first and leak the real (RU/MTS) IP, which
+#       triggers "model provider is not supported in your region".
+#  cursor.general.disableHttp2 = true -> use HTTP/1.1. With HTTP/2 over a local proxy,
+#       Cursor's streaming/region check can bypass the proxy and leak the real region.
+#       This is THE documented fix for the region error behind a proxy/VPN.
+#  http.proxyStrictSSL = false -> avoid TLS validation hiccups through the local proxy.
+$managedKeys = @('http.proxy', 'http.proxySupport', 'http.proxyStrictSSL', 'cursor.general.disableHttp2')
+
 if ($Disable) {
-    foreach ($k in @('http.proxy', 'http.proxySupport')) {
+    foreach ($k in $managedKeys) {
         if ($map.Contains($k)) { $map.Remove($k) }
     }
     Write-Note 'Cursor proxy otklyuchyon (pryamoe soedinenie).' Yellow
 } else {
     $map['http.proxy'] = $proxyUrl
-    $map['http.proxySupport'] = 'on'
-    Write-Note "Cursor -> $proxyUrl (shifrovannyj tunnel, vyhod Polsha)." Green
+    $map['http.proxySupport'] = 'override'
+    $map['http.proxyStrictSSL'] = $false
+    $map['cursor.general.disableHttp2'] = $true
+    Write-Note "Cursor -> $proxyUrl (tunnel, vyhod Polsha; HTTP/2 off, proxy=override)." Green
 }
 
 $json = $map | ConvertTo-Json -Depth 20
