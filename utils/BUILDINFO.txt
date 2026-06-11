@@ -1,3 +1,7 @@
-Otmena build 1.0.8
-Date: 2026-06-01 14:33:30
-Includes: MTProto LiteralPath fix, auto xray install, GitHub updates, UTF8 logs
+Otmena build 1.0.9
+Includes: Cursor -> Europe (Poland) tunnel.
+ - telegram-vless/config.json: local inbounds 10808 (TG SOCKS), 10809 (Cursor HTTP), 10810 (Cursor SOCKS) -> Poland VLESS+Reality (fingerprint qq).
+ - utils/cursor-europe.ps1 + CURSOR-EUROPE-ON.bat / CURSOR-EUROPE-OFF.bat: set Windows system proxy + Cursor settings to the tunnel, verify egress is outside Russia.
+ - utils/cursor-proxy.ps1: write http.proxy into Cursor settings.json (with backup).
+ - utils/launcher.ps1: enable Cursor proxy on start, disable on stop.
+ - xray.exe bundled in telegram-vless/bin.
