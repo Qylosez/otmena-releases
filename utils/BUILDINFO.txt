@@ -1,8 +1,4 @@
-Otmena build 1.1.22
+Otmena build 1.1.23
 Date: 2026-09-15
-Start = Discord/YouTube + Telegram + Cursor Europe (one button)
-Fix: no Cursor proxy unless tunnel actually answers (stops reconnect loop)
-Fix: Electron argv.json + HTTP/2 off
-Fix: autostart runs full Start including Cursor Europe
-Add: Cursor EU status tile
-Google hostlist: gstatic/accounts/fonts
+Fix: updater downloads GitHub zip via local xray (10808/10809) and mirrors
+Add: DOWNLOAD-UPDATE.bat for blocked GitHub

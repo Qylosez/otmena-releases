@@ -963,7 +963,7 @@ public class ZapretApp : Form
             var extra = "-Quiet";
             if (!string.IsNullOrEmpty(packageUrl))
                 extra += " -PackageUrl \"" + packageUrl + "\"";
-            e.Result = RunScriptCapture("apply-update.ps1", extra, 120000);
+            e.Result = RunScriptCapture("apply-update.ps1", extra, 180000);
         };
         bw.RunWorkerCompleted += (s, e) =>
         {
@@ -1006,9 +1006,11 @@ public class ZapretApp : Form
                 AppendLog("Ошибка установки (код " + code + ").", Theme.Bad);
                 if (!string.IsNullOrEmpty(err))
                     AppendLog(err, Theme.Warn);
-                AppendLog("GitHub заблокирован? Положи Otmena-update.zip в папку и запусти UPDATE-MANUAL.bat", Theme.Warn);
+                AppendLog("GitHub с этого ПК не качается напрямую.", Theme.Warn);
+                AppendLog("1) Нажми «Запустить всё», подожди 10 сек.", Theme.Muted);
+                AppendLog("2) Запусти DOWNLOAD-UPDATE.bat в папке Otmena.", Theme.Muted);
+                AppendLog("   или положи Otmena-update.zip рядом с Otmena.exe и UPDATE-MANUAL.bat", Theme.Muted);
                 AppendLog("Лог: utils\\update.log", Theme.Muted);
-                AppendLog("Releases: github.com/Qylosez/otmena-releases/releases", Theme.Muted);
             }
         };
         bw.RunWorkerAsync();

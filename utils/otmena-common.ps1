@@ -38,18 +38,42 @@ function Test-OtmenaZipFile([string]$Path, [int]$MinBytes = 50000) {
     } finally { $fs.Close() }
 }
 
-function Save-OtmenaUrl([string]$Url, [string]$OutFile, [int]$TimeoutSec = 180, [int]$MinBytes = 50000) {
-    $ProgressPreference = 'SilentlyContinue'
-    $parent = Split-Path $OutFile -Parent
-    if ($parent -and -not (Test-Path $parent)) {
-        New-Item -ItemType Directory -Path $parent -Force | Out-Null
+function Test-OtmenaLocalPort([int]$Port) {
+    try {
+        $c = New-Object Net.Sockets.TcpClient
+        $iar = $c.BeginConnect('127.0.0.1', $Port, $null, $null)
+        if ($iar.AsyncWaitHandle.WaitOne(400, $false) -and $c.Connected) {
+            $c.Close()
+            return $true
+        }
+        $c.Close()
+    } catch {}
+    return $false
+}
+
+function Get-OtmenaUrlMirrors([string]$Url) {
+    $list = New-Object System.Collections.Generic.List[string]
+    [void]$list.Add($Url)
+    if ($Url -match 'https?://github\.com/') {
+        [void]$list.Add(('https://ghfast.top/' + $Url))
+        [void]$list.Add(('https://ghproxy.net/' + $Url))
+        [void]$list.Add(($Url -replace 'https://github.com/', 'https://kkgithub.com/'))
     }
+    return $list.ToArray()
+}
+
+function Save-OtmenaUrlDirect([string]$Url, [string]$OutFile, [int]$TimeoutSec, [string]$ProxyHttp) {
     $req = [Net.HttpWebRequest]::Create($Url)
     $req.Method = 'GET'
     $req.UserAgent = 'Otmena-Updater'
     $req.Timeout = [Math]::Max(5000, $TimeoutSec * 1000)
     $req.ReadWriteTimeout = [Math]::Max(5000, $TimeoutSec * 1000)
     $req.AllowAutoRedirect = $true
+    if ($ProxyHttp) {
+        $req.Proxy = New-Object Net.WebProxy($ProxyHttp)
+    } else {
+        $req.Proxy = [Net.GlobalProxySelection]::GetEmptyWebProxy()
+    }
     $resp = $null
     $in = $null
     $out = $null
@@ -66,13 +90,69 @@ function Save-OtmenaUrl([string]$Url, [string]$OutFile, [int]$TimeoutSec = 180, 
         if ($in) { $in.Close() }
         if ($resp) { $resp.Close() }
     }
-    if (-not (Test-OtmenaZipFile -Path $OutFile -MinBytes $MinBytes)) {
-        $len = 0
-        if (Test-OtmenaPath $OutFile) { $len = (Get-Item -LiteralPath $OutFile).Length }
-        Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
-        throw "skachan ne zip (size=$len). GitHub zablokirovan ili falshivyj fajl. Skachaj vruchnuyu s Releases."
+}
+
+function Save-OtmenaUrlViaCurl([string]$Url, [string]$OutFile, [string[]]$CurlProxyArgs) {
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if (-not $curl) { return $false }
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    $args = New-Object System.Collections.Generic.List[string]
+    if ($CurlProxyArgs) { foreach ($a in $CurlProxyArgs) { [void]$args.Add($a) } }
+    [void]$args.Add('-fsSL')
+    [void]$args.Add('-o'); [void]$args.Add($OutFile)
+    [void]$args.Add('--connect-timeout'); [void]$args.Add('20')
+    [void]$args.Add('--max-time'); [void]$args.Add('180')
+    [void]$args.Add('-A'); [void]$args.Add('Otmena-Updater')
+    [void]$args.Add($Url)
+    & curl.exe @($args.ToArray()) 2>$null | Out-Null
+    return (Test-Path -LiteralPath $OutFile)
+}
+
+function Save-OtmenaUrl([string]$Url, [string]$OutFile, [int]$TimeoutSec = 180, [int]$MinBytes = 50000) {
+    $ProgressPreference = 'SilentlyContinue'
+    $parent = Split-Path $OutFile -Parent
+    if ($parent -and -not (Test-Path $parent)) {
+        New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
-    return $true
+
+    $attempts = New-Object System.Collections.Generic.List[object]
+    foreach ($u in (Get-OtmenaUrlMirrors $Url)) {
+        [void]$attempts.Add(@{ Url = $u; ProxyHttp = $null; Curl = $null })
+        if (Test-OtmenaLocalPort 10809) {
+            [void]$attempts.Add(@{ Url = $u; ProxyHttp = 'http://127.0.0.1:10809'; Curl = @('-x', 'http://127.0.0.1:10809') })
+        }
+        if (Test-OtmenaLocalPort 10808) {
+            [void]$attempts.Add(@{ Url = $u; ProxyHttp = $null; Curl = @('--socks5-hostname', '127.0.0.1:10808') })
+        }
+        if (Test-OtmenaLocalPort 10810) {
+            [void]$attempts.Add(@{ Url = $u; ProxyHttp = $null; Curl = @('--socks5-hostname', '127.0.0.1:10810') })
+        }
+    }
+
+    $lastErr = ''
+    foreach ($a in $attempts) {
+        try {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            if ($a.Curl) {
+                Save-OtmenaUrlViaCurl -Url $a.Url -OutFile $OutFile -CurlProxyArgs $a.Curl | Out-Null
+            } else {
+                Save-OtmenaUrlDirect -Url $a.Url -OutFile $OutFile -TimeoutSec $TimeoutSec -ProxyHttp $a.ProxyHttp
+            }
+            if (Test-OtmenaZipFile -Path $OutFile -MinBytes $MinBytes) { return $true }
+            # version.txt and other small files: accept any non-empty if MinBytes is tiny
+            if ($MinBytes -lt 1000 -and (Test-OtmenaPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -ge $MinBytes)) {
+                return $true
+            }
+            $len = 0
+            if (Test-OtmenaPath $OutFile) { $len = (Get-Item -LiteralPath $OutFile).Length }
+            $lastErr = "ne zip size=$len"
+        } catch {
+            $lastErr = $_.Exception.Message
+        }
+    }
+
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    throw "skachat ne udalos ($lastErr). GitHub zablokirovan. Zapusti Otmena -> Start, ili polozhi Otmena-update.zip v papku i UPDATE-MANUAL.bat"
 }
 
 function Get-OtmenaPackageUrl {

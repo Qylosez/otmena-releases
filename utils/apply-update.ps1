@@ -42,9 +42,13 @@ function Get-PackageSource {
 }
 
 function Save-Package([string]$source, [string]$zipPath) {
+    $localZip = Join-Path $rootDir 'Otmena-update.zip'
     if ($source -notmatch '^https?://') {
         if (-not (Test-OtmenaPath $source)) { throw "Paket ne naiden: $source" }
         Copy-OtmenaFile $source $zipPath | Out-Null
+        if (-not (Test-OtmenaZipFile -Path $zipPath -MinBytes 200000)) {
+            throw "Lokalnyj zip povrezhden. Skachaj Otmena-update.zip zanovo."
+        }
         return
     }
 
@@ -57,19 +61,17 @@ function Save-Package([string]$source, [string]$zipPath) {
         $ok = $true
     } catch {
         $lastErr = $_.Exception.Message
-        Write-UpdateLog "HttpWebRequest fail: $lastErr"
+        Write-UpdateLog "Download fail: $lastErr"
     }
 
-    if (-not $ok -and (Get-Command curl.exe -ErrorAction SilentlyContinue)) {
-        Write-UpdateLog 'Retry via curl.exe...'
-        Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-        & curl.exe -fsSL -o $zipPath $source --connect-timeout 30 --max-time 300 2>$null
-        if (Test-OtmenaZipFile -Path $zipPath -MinBytes 200000) { $ok = $true }
-        else { $lastErr = 'curl: ne zip ili GitHub zablokirovan' }
+    if (-not $ok -and (Test-OtmenaZipFile -Path $localZip -MinBytes 200000)) {
+        Write-UpdateLog "Fallback to local zip: $localZip"
+        Copy-OtmenaFile $localZip $zipPath | Out-Null
+        $ok = $true
     }
 
     if (-not $ok) {
-        throw "Ne udalos skachat obnovlenie. $lastErr. Polozhi Otmena-update.zip v papku Otmena i povtori."
+        throw "Ne udalos skachat obnovlenie. $lastErr. Polozhi Otmena-update.zip ryadom s Otmena.exe i zapusti UPDATE-MANUAL.bat"
     }
 }
 
