@@ -96,7 +96,7 @@ echo      11. Run Tests
 echo      12. Setup Telegram -> use Zapret.exe (GUI)
 echo      13. Setup Telegram VLESS -> use Zapret.exe (GUI)
 echo      14. Install autostart (auto-failover at logon)
-echo      15. Exclude Cursor IDE from bypass (fix reconnect)
+echo      15. Cursor Europe now (also part of Start / autostart)
 echo      16. Work mode (no Windows service) [!WorkModeStatus!]
 echo.
 echo   ----------------------------------------
@@ -1073,7 +1073,11 @@ goto menu
 :setup_cursor_exclude
 chcp 65001 > nul
 cls
+echo Cursor Europe is included in Start. Applying tunnel + Cursor proxy now...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ZROOT%utils\ensure-cursor-tunnel.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ZROOT%utils\telegram-vless-daemon.ps1"
 powershell -NoProfile -ExecutionPolicy Bypass -File "%ZROOT%utils\update-cursor-exclude.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ZROOT%utils\cursor-proxy.ps1"
 pause
 goto menu
 

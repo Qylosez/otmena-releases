@@ -21,6 +21,14 @@ foreach ($line in $envLines) { [void]$sb.AppendLine($line) }
 $statusLines = & (Join-Path $PSScriptRoot 'get-status.ps1')
 foreach ($line in $statusLines) { [void]$sb.AppendLine($line) }
 
+$cursorState = Join-Path $PSScriptRoot 'cursor-proxy.state.json'
+if (Test-OtmenaPath $cursorState) {
+    [void]$sb.AppendLine('CURSOR_STATE=present')
+    Get-Content $cursorState -ErrorAction SilentlyContinue | ForEach-Object { [void]$sb.AppendLine($_) }
+} else {
+    [void]$sb.AppendLine('CURSOR_STATE=missing')
+}
+
 $xrayPath = Join-Path $rootDir 'telegram-vless\bin\xray.exe'
 $xrayZip = Join-Path $rootDir 'telegram-vless\bin\xray-windows-64.zip'
 if (Test-OtmenaPath $xrayPath) {

@@ -32,6 +32,7 @@ public class ZapretApp : Form
     private readonly string settingsFile;
     private readonly StatusTile tileZapret;
     private readonly StatusTile tileTg;
+    private readonly StatusTile tileCursor;
     private readonly StatusTile tileAdmin;
     private readonly StatusTile tileAuto;
     private readonly StatusTile tileWork;
@@ -95,7 +96,7 @@ public class ZapretApp : Form
         };
         subtitleLabel = new Label
         {
-            Text = "Discord · YouTube · Telegram",
+            Text = "Discord · YouTube · Telegram · Cursor",
             ForeColor = Theme.Muted,
             Font = new Font("Segoe UI", 10f),
             AutoSize = true,
@@ -107,12 +108,13 @@ public class ZapretApp : Form
 
         tileZapret = new StatusTile("Discord / YouTube", 24, 104, 136);
         tileTg = new StatusTile("Telegram", 172, 104, 136);
-        tileAdmin = new StatusTile("Права", 320, 104, 136);
-        tileAuto = new StatusTile("Автозапуск", 98, 168, 136);
-        tileWork = new StatusTile("Work mode", 246, 168, 136);
+        tileCursor = new StatusTile("Cursor EU", 320, 104, 136);
+        tileAdmin = new StatusTile("Права", 24, 168, 136);
+        tileAuto = new StatusTile("Автозапуск", 172, 168, 136);
+        tileWork = new StatusTile("Work mode", 320, 168, 136);
 
         var lblActions = SectionLabel("Действия", 240);
-        var btnStart = MakePrimaryButton("▶  Запустить", 24, 264, 432, 48);
+        var btnStart = MakePrimaryButton("▶  Запустить всё", 24, 264, 432, 48);
         var btnStop = MakeGhostButton("■  Остановить", 24, 322, 210, 40);
         var btnTest = MakeGhostButton("⚡  Проверить", 246, 322, 210, 40);
 
@@ -124,10 +126,9 @@ public class ZapretApp : Form
         var btnAutoOff = MakeGhostButton("Автозапуск ВЫКЛ", 246, 478, 210, 36);
         var btnWork = MakeGhostButton("Work mode", 24, 522, 210, 36);
         var btnAdmin = MakeGhostButton("От администратора", 246, 522, 210, 36);
-        var btnCursor = MakeGhostButton("Cursor exclude", 24, 566, 210, 36);
-        var btnDiag = MakeGhostButton("Диагностика", 246, 566, 210, 36);
-        var btnUpdates = MakeGhostButton("Обновления", 24, 610, 210, 36);
-        var btnClean = MakeGhostButton("Выключить всё", 246, 610, 210, 36);
+        var btnDiag = MakeGhostButton("Диагностика", 24, 566, 210, 36);
+        var btnUpdates = MakeGhostButton("Обновления", 246, 566, 210, 36);
+        var btnClean = MakeGhostButton("Выключить всё", 24, 610, 432, 36);
 
         var btnDelete = new Button
         {
@@ -180,17 +181,16 @@ public class ZapretApp : Form
         lockButtons = new[]
         {
             btnStart, btnStop, btnTest, btnAutoOn, btnAutoOff, btnWork, btnAdmin,
-            btnCursor, btnDiag, btnUpdates, btnClean, btnMtproto, btnDelete
+            btnDiag, btnUpdates, btnClean, btnMtproto, btnDelete
         };
 
-        btnStart.Click += (s, e) => RunLauncher("start", "Запуск...");
+        btnStart.Click += (s, e) => RunLauncher("start", "Запуск DS/YT, Telegram и Cursor Europe...");
         btnStop.Click += (s, e) => RunLauncher("stop", "Остановка...");
         btnTest.Click += (s, e) => RunTest();
-        btnAutoOn.Click += (s, e) => RunPsScript("install-autostart-smart.ps1", false, "Автозапуск включён.", "Не удалось включить автозапуск.");
+        btnAutoOn.Click += (s, e) => RunPsScript("install-autostart-smart.ps1", false, "Автозапуск включён (со Start + Cursor Europe).", "Не удалось включить автозапуск.");
         btnAutoOff.Click += (s, e) => RunPsScript("remove-autostart.ps1", false, "Автозапуск выключен.", "Ошибка отключения автозапуска.");
         btnWork.Click += (s, e) => RunPsScript("toggle-work-mode.ps1", false, "Work mode переключён.", "Не удалось переключить work mode.");
         btnAdmin.Click += (s, e) => RestartAsAdmin();
-        btnCursor.Click += (s, e) => RunPsScript("update-cursor-exclude.ps1", false, "Cursor exclude обновлён.", "Ошибка Cursor exclude.");
         btnDiag.Click += (s, e) => CopyDiagnostics();
         btnUpdates.Click += (s, e) => CheckUpdates();
         btnClean.Click += (s, e) => RunPsScript("uninstall-all.ps1", false, "Всё выключено.", "Ошибка при остановке.");
@@ -199,10 +199,10 @@ public class ZapretApp : Form
 
         Controls.AddRange(new Control[]
         {
-            header, tileZapret, tileTg, tileAdmin, tileAuto, tileWork,
+            header, tileZapret, tileTg, tileCursor, tileAdmin, tileAuto, tileWork,
             lblActions, btnStart, btnStop, btnTest,
             lblTg, btnMtproto,
-            lblSys, btnAutoOn, btnAutoOff, btnWork, btnAdmin, btnCursor, btnDiag, btnUpdates, btnClean,
+            lblSys, btnAutoOn, btnAutoOff, btnWork, btnAdmin, btnDiag, btnUpdates, btnClean,
             btnDelete, logPanel
         });
 
@@ -214,7 +214,7 @@ public class ZapretApp : Form
         };
         var trayMenu = new ContextMenuStrip();
         trayMenu.Items.Add("Открыть", null, (s, e) => ShowFromTray());
-        trayMenu.Items.Add("Запустить", null, (s, e) => RunLauncher("start", "Запуск из трея..."));
+        trayMenu.Items.Add("Запустить всё", null, (s, e) => RunLauncher("start", "Запуск из трея..."));
         trayMenu.Items.Add("Остановить", null, (s, e) => RunLauncher("stop", "Остановка из трея..."));
         trayMenu.Items.Add(new ToolStripSeparator());
         trayMenu.Items.Add("Выход", null, (s, e) => { reallyExit = true; Close(); });
@@ -245,6 +245,7 @@ public class ZapretApp : Form
             if (!IsAdmin()) AppendLog("Запусти от администратора для DS/YT.", Theme.Warn);
             tileZapret.SetState(false, "…", "…");
             tileTg.SetState(false, "…", "…");
+            tileCursor.SetState(false, "…", "…");
             tileAdmin.SetState(IsAdmin(), IsAdmin() ? "Админ" : "…", "Нет прав");
             tileAuto.SetState(false, "…", "…");
             tileWork.SetState(false, "…", "…");
@@ -522,6 +523,8 @@ public class ZapretApp : Form
             if (action == "start")
             {
                 MaybeCorpTelegramHint();
+                if (code == 0)
+                    AppendLog("Cursor Europe входит в Запустить. Если IDE reconnecting — полностью перезапусти Cursor.", Theme.Warn);
                 if (code != 0 && !xrayAvailable)
                     ShowMtProtoSetup(LoadMtProtoConfig());
             }
@@ -736,12 +739,12 @@ public class ZapretApp : Form
         if (subtitleLabel == null || btnMtproto == null) return;
         if (!xrayAvailable)
         {
-            subtitleLabel.Text = "Discord · YouTube · Telegram (MTProto)";
+            subtitleLabel.Text = "Discord · YouTube · Telegram (MTProto) · Cursor";
             btnMtproto.Text = "Настройки Telegram — скопировать MTProto";
         }
         else
         {
-            subtitleLabel.Text = "Discord · YouTube · Telegram";
+            subtitleLabel.Text = "Discord · YouTube · Telegram · Cursor";
             btnMtproto.Text = "Добавить MTProto в Telegram";
         }
     }
@@ -929,6 +932,7 @@ public class ZapretApp : Form
             sb.AppendLine("• Для Discord/YouTube нужны права администратора.");
         if (noXray)
             sb.AppendLine("• xray ставится при первом запуске. Если не скачался — загрузи xray-windows-64.zip в Releases.");
+        sb.AppendLine("• Одна кнопка «Запустить всё»: Discord/YouTube, Telegram и Cursor через Europe.");
         sb.AppendLine();
         sb.AppendLine("Свернуть в трей при закрытии окна?");
 
@@ -1053,13 +1057,14 @@ public class ZapretApp : Form
             return;
         }
 
-        bool zapret = false, tg = false, admin = false, auto = false, work = false;
+        bool zapret = false, tg = false, admin = false, auto = false, work = false, cursor = false;
         var hasXray = xrayAvailable;
         string autoType = "none";
         foreach (var line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
         {
             if (line.StartsWith("ZAPRET=1")) zapret = true;
             if (line.StartsWith("TG=1")) tg = true;
+            if (line.StartsWith("CURSOR=1")) cursor = true;
             if (line.StartsWith("ADMIN=1")) admin = true;
             if (line.StartsWith("AUTO=1")) auto = true;
             if (line.StartsWith("WORK=1")) work = true;
@@ -1073,6 +1078,7 @@ public class ZapretApp : Form
             tileTg.SetState(false, "MTProto", "Настроить");
         else
             tileTg.SetState(tg, "Онлайн", "Выключен");
+        tileCursor.SetState(cursor, "Europe", "Выключен");
         tileAdmin.SetState(admin, "Админ", "Нет прав");
         var autoOn = auto ? (autoType == "task" ? "Задача" : autoType == "startup" ? "Startup" : "Включён") : "Выключен";
         tileAuto.SetState(auto, autoOn, "Выключен");

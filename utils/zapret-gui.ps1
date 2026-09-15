@@ -159,7 +159,8 @@ $btnStart.Add_Click({
         $z = Start-ZapretFailover
         & (Join-Path $utilsDir 'update-cursor-exclude.ps1') 2>$null | Out-Null
         $t = Start-TelegramFailover
-        @{ Zapret = $z; Telegram = $t; Log = @($script:LastResults) }
+        $c = Start-CursorEurope
+        @{ Zapret = $z; Telegram = $t; Cursor = $c; Log = @($script:LastResults) }
     } -Done {
         param($r)
         foreach ($entry in $r.Log) {
@@ -171,11 +172,15 @@ $btnStart.Add_Click({
         else { Append-Log $log 'Itog: DS/YT ne zapustilsya' ([Drawing.Color]::Red) }
         if ($r.Telegram) { Append-Log $log 'Itog: Telegram zapushchen' ([Drawing.Color]::Green) }
         else { Append-Log $log 'Itog: Telegram ne zapustilsya' ([Drawing.Color]::Red) }
+        if ($r.Cursor) { Append-Log $log 'Itog: Cursor Europe zapushchen' ([Drawing.Color]::Green) }
+        else { Append-Log $log 'Itog: Cursor Europe ne zapustilsya' ([Drawing.Color]::Red) }
     }
 })
 
 $btnStop.Add_Click({
     Append-Log $log 'Ostanovka...' ([Drawing.Color]::Yellow)
+    Set-DesiredRunning $false
+    & (Join-Path $utilsDir 'cursor-proxy.ps1') -Disable | Out-Null
     Stop-Winws
     Stop-TelegramLocal
     & (Join-Path $utilsDir 'disable-system-proxy.ps1')

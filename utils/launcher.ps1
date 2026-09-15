@@ -101,10 +101,12 @@ function Stop-Xray {
     Get-Process -Name xray -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     taskkill /IM xray.exe /F 2>$null | Out-Null
 
-    $lines = netstat -ano 2>$null | Select-String 'LISTENING' | Select-String ':10808\s'
-    foreach ($line in $lines) {
-        if ([string]$line -match '\s(\d+)\s*$') {
-            Stop-Process -Id ([int]$matches[1]) -Force -ErrorAction SilentlyContinue
+    foreach ($port in @(10808, 10809, 10810)) {
+        $lines = netstat -ano 2>$null | Select-String 'LISTENING' | Select-String (":$port\s")
+        foreach ($line in $lines) {
+            if ([string]$line -match '\s(\d+)\s*$') {
+                Stop-Process -Id ([int]$matches[1]) -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
@@ -115,6 +117,73 @@ function Stop-TelegramLocal {
     Stop-Xray
     . (Join-Path $PSScriptRoot 'telegram-uri.ps1')
     Open-TgUriSafe -Uri 'tg://proxy?disable=1' -Quiet -Kind 'proxy' | Out-Null
+}
+
+function Set-DesiredRunning([bool]$on) {
+    $flag = Join-Path $PSScriptRoot 'desired-running.flag'
+    if ($on) {
+        Set-Content -Path $flag -Value (Get-Date -Format 'o') -Encoding ASCII
+    } elseif (Test-Path $flag) {
+        Remove-Item $flag -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Wait-NetworkReady {
+    for ($i = 0; $i -lt 20; $i++) {
+        try {
+            $nics = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+                Where-Object { $_.OperationalStatus -eq 'Up' -and $_.NetworkInterfaceType -ne 'Loopback' }
+            if ($nics) { return $true }
+        } catch {}
+        Start-Sleep -Seconds 1
+    }
+    return $false
+}
+
+function Test-HttpProxyAlive([int]$port) {
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    if (-not $curl) { return $null }
+    try {
+        $code = & curl.exe -s -o NUL -w '%{http_code}' -x "http://127.0.0.1:$port" --connect-timeout 8 --max-time 12 https://cp.cloudflare.com/generate_204
+        if ($code -match '^(204|200|301|302|307|308|401|403)$') { return $true }
+        return $false
+    } catch {
+        return $false
+    }
+}
+
+function Start-CursorEurope {
+    Write-Info 'Cursor Europe: tunnel 10809 + proxy v Cursor...'
+    & (Join-Path $PSScriptRoot 'ensure-cursor-tunnel.ps1') -Quiet 2>$null | Out-Null
+
+    if (-not (Test-PortListen 10809)) {
+        & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
+        for ($i = 0; $i -lt 8; $i++) {
+            if (Test-PortListen 10809) { break }
+            Start-Sleep -Seconds 1
+        }
+    }
+
+    if (-not (Test-PortListen 10809)) {
+        Write-Warn 'Tunnel 10809 ne podnyalsya - Cursor proxy ne vkljuchaju (inache reconnect loop).'
+        & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Disable -Quiet | Out-Null
+        return $false
+    }
+
+    $probe = Test-HttpProxyAlive 10809
+    if ($probe -eq $false) {
+        Write-Warn 'Tunnel 10809 slushaet, no vyhod v EU ne otvechaet - Cursor ostayotsya napryamuyu + exclude.'
+        & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Disable -Quiet | Out-Null
+        return $false
+    }
+
+    & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Quiet:$Quiet 2>$null | Out-Null
+    if ($probe -eq $true) {
+        Write-Ok 'Cursor -> 127.0.0.1:10809 (Europe, tunnel OK). Perezapusti Cursor.'
+    } else {
+        Write-Ok 'Cursor -> 127.0.0.1:10809 (Europe). Perezapusti Cursor. (curl net - probe skip)'
+    }
+    return $true
 }
 
 function Test-StartupAutostart {
@@ -136,9 +205,21 @@ function Get-ZapretStatusObject {
     $autoType = 'none'
     if ($taskAuto) { $autoType = 'task' }
     elseif ($startupAuto) { $autoType = 'startup' }
+    $cursorPort = Test-PortListen 10809
+    $cursorState = Join-Path $PSScriptRoot 'cursor-proxy.state.json'
+    $cursorProxy = $false
+    if (Test-Path $cursorState) {
+        try {
+            $st = Get-Content $cursorState -Raw | ConvertFrom-Json -ErrorAction Stop
+            $cursorProxy = [bool]$st.enabled
+        } catch {}
+    }
     return [PSCustomObject]@{
         ZapretRunning = Test-WinwsRunning
         TelegramRunning = ($tgPort -or $tgProc)
+        CursorTunnel = $cursorPort
+        CursorProxy = $cursorProxy
+        CursorEurope = ($cursorPort -and $cursorProxy)
         WorkMode = Test-WorkMode
         IsAdmin = Test-IsAdmin
         AutostartInstalled = ($taskAuto -or $startupAuto)
@@ -437,6 +518,13 @@ function Show-Status {
     } else {
         Write-Host '  Avtozapusk:      VYKL' -ForegroundColor Gray
     }
+    if ($s.CursorEurope) {
+        Write-Host '  Cursor Europe:   RABOTAET (127.0.0.1:10809)' -ForegroundColor Green
+    } elseif ($s.CursorTunnel) {
+        Write-Host '  Cursor Europe:   tunnel est, proxy v Cursor ne zapisalsya' -ForegroundColor Yellow
+    } else {
+        Write-Host '  Cursor Europe:   NE RABOTAET' -ForegroundColor Red
+    }
     Write-Host ''
 }
 
@@ -456,35 +544,34 @@ switch ($Action) {
             Write-Host '=== Zapret: avto-perekljuchenie ===' -ForegroundColor White
             Write-Host ''
         }
+        Set-DesiredRunning $true
+        Wait-NetworkReady | Out-Null
         if (Test-SecretNet) {
             Enable-WorkMode
             Write-Warn 'Secret Net obnaruzhen - rabochij rezhim (bez sluzhby Windows)'
         }
         Ensure-XrayInstalled | Out-Null
+        & (Join-Path $PSScriptRoot 'ensure-cursor-tunnel.ps1') -Quiet 2>$null | Out-Null
         $zapret = Start-ZapretFailover
         & (Join-Path $PSScriptRoot 'update-cursor-exclude.ps1') 2>$null | Out-Null
         $telegram = Start-TelegramFailover
-        # Route Cursor (UI + all models) through the encrypted Poland tunnel.
-        # Only when the local xray HTTP inbound is actually up, so we never
-        # point Cursor at a dead proxy and cut it off from the internet.
-        if (Test-PortListen 10809) {
-            Write-Info 'Cursor cherez shifrovannyj tunnel (vyhod Polsha)...'
-            & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Quiet:$Quiet 2>$null | Out-Null
-            Write-Ok 'Cursor -> 127.0.0.1:10809 (Europe). Perezapusti Cursor.'
-        } else {
-            Write-Warn 'Tunnel (10809) ne podnyalsya - Cursor ostayotsya napryamuyu.'
-        }
+        $cursor = Start-CursorEurope
+        & (Join-Path $PSScriptRoot 'install-watchdog.ps1') 2>$null | Out-Null
         if (-not $Quiet) {
             Show-Status
             if (-not $zapret) {
                 Write-Host 'Esli Secret Net blokiruet drajver - ostanetsya tolko Telegram cherez VLESS.' -ForegroundColor Yellow
             }
+            if (-not $cursor) {
+                Write-Host 'Cursor: tunnel ne podnyalsya. Zapret exclude vsyo ravno obnovlen - perezapusti Cursor.' -ForegroundColor Yellow
+            }
         }
-        if ($zapret -or $telegram) { exit 0 }
+        if ($zapret -or $telegram -or $cursor) { exit 0 }
         exit 1
     }
     'stop' {
         Write-Info 'Ostanovka...'
+        Set-DesiredRunning $false
         & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Disable -Quiet:$Quiet 2>$null | Out-Null
         Stop-Winws
         Stop-TelegramLocal

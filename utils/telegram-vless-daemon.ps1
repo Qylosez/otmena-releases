@@ -24,8 +24,29 @@ function Test-PortListen([int]$port) {
     return $false
 }
 
+function Stop-StaleXray {
+    if (Test-Path $pidFile) {
+        $old = Get-Content $pidFile -ErrorAction SilentlyContinue
+        if ($old -match '^\d+$') {
+            Stop-Process -Id ([int]$old) -Force -ErrorAction SilentlyContinue
+        }
+        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+    }
+    Get-Process -Name xray -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+}
+
 function Start-XrayQuiet {
-    if (Test-PortListen $socksPort) { return 'running' }
+    & (Join-Path $PSScriptRoot 'ensure-cursor-tunnel.ps1') -Quiet | Out-Null
+
+    $tgUp = Test-PortListen $socksPort
+    $cursorUp = Test-PortListen 10809
+    if ($tgUp -and $cursorUp) { return 'running' }
+    if ($tgUp -and -not $cursorUp) {
+        # Old xray without Cursor inbounds - recycle so 10809 appears.
+        Stop-StaleXray
+    }
+
     if (-not (Test-Path $xrayExe)) {
         & (Join-Path $PSScriptRoot 'ensure-xray.ps1') -Quiet | Out-Null
         if (-not (Test-Path $xrayExe)) { return 'no-xray' }
@@ -35,7 +56,8 @@ function Start-XrayQuiet {
         $old = Get-Content $pidFile -ErrorAction SilentlyContinue
         if ($old -match '^\d+$') {
             $p = Get-Process -Id ([int]$old) -ErrorAction SilentlyContinue
-            if ($p) { return 'running' }
+            if ($p -and (Test-PortListen $socksPort) -and (Test-PortListen 10809)) { return 'running' }
+            if ($p) { Stop-StaleXray }
         }
     }
 
@@ -50,9 +72,10 @@ function Start-XrayQuiet {
     $proc.Id | Out-File -FilePath $pidFile -Encoding ASCII -Force
 
     for ($i = 0; $i -lt 12; $i++) {
-        if (Test-PortListen $socksPort) { return 'started' }
+        if ((Test-PortListen $socksPort) -and (Test-PortListen 10809)) { return 'started' }
         Start-Sleep -Seconds 1
     }
+    if (Test-PortListen $socksPort) { return 'started-no-cursor' }
     return 'failed'
 }
 

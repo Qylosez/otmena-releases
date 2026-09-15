@@ -40,11 +40,26 @@ $startupAuto = Test-StartupAutostart
 $autoType = 'none'
 if ($taskAuto) { $autoType = 'task' }
 elseif ($startupAuto) { $autoType = 'startup' }
+$watchdogTask = [bool](Get-ScheduledTask -TaskName 'Otmena-Watchdog' -ErrorAction SilentlyContinue)
+
+$cursorPort = Test-PortListen 10809
+$cursorProxy = $false
+$cursorState = Join-Path $PSScriptRoot 'cursor-proxy.state.json'
+if (Test-Path $cursorState) {
+    try {
+        $st = Get-Content $cursorState -Raw | ConvertFrom-Json -ErrorAction Stop
+        $cursorProxy = [bool]$st.enabled
+    } catch {}
+}
 
 Write-Output ("ZAPRET={0}" -f [int]$zapret)
 Write-Output ("TG={0}" -f [int]($tgPort -or $tgProc))
+Write-Output ("CURSOR={0}" -f [int]($cursorPort -and $cursorProxy))
+Write-Output ("CURSOR_TUNNEL={0}" -f [int]$cursorPort)
+Write-Output ("CURSOR_PROXY={0}" -f [int]$cursorProxy)
 Write-Output ("ADMIN={0}" -f [int]$isAdmin)
 Write-Output ("AUTO={0}" -f [int]($taskAuto -or $startupAuto))
 Write-Output ("AUTO_TYPE={0}" -f $autoType)
 Write-Output ("WORK={0}" -f [int]$workMode)
+Write-Output ("WATCHDOG={0}" -f [int]$watchdogTask)
 Write-Output ("XRAY={0}" -f [int](Test-Path (Join-Path $rootDir 'telegram-vless\bin\xray.exe')))

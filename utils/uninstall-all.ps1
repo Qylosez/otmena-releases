@@ -17,6 +17,7 @@ Write-Step 'Ostanovka zapret i Telegram...'
 
 Write-Step 'Udalenie avtozapuska...'
 Unregister-ScheduledTask -TaskName 'Otmena-Start' -Confirm:$false
+Unregister-ScheduledTask -TaskName 'Otmena-Watchdog' -Confirm:$false
 Unregister-ScheduledTask -TaskName 'Zapret-Start' -Confirm:$false
 Unregister-ScheduledTask -TaskName 'Zapret3-Telegram-Vless' -Confirm:$false
 Unregister-ScheduledTask -TaskName 'Zapret3-NoSystemProxy' -Confirm:$false

@@ -14,6 +14,7 @@ function Register-Task([string]$name, [string]$execute, [string]$arguments, [str
 
     $action = New-ScheduledTaskAction -Execute $execute -Argument $arguments -WorkingDirectory $workDir
     $trigger = New-ScheduledTaskTrigger -AtLogOn
+    try { $trigger.Delay = 'PT20S' } catch {}
     if ($highest) {
         $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
     } else {
@@ -43,9 +44,12 @@ try {
     Write-Step 'Starting now...'
     & $launcher -Action start
 
+    & (Join-Path $PSScriptRoot 'install-watchdog.ps1') | Out-Null
+
     Write-Host ''
-    Write-Host 'Gotovo. Pri vhode v Windows avtomat: DS/YT + Telegram.' -ForegroundColor Green
+    Write-Host 'Gotovo. Pri vhode v Windows avtomat: DS/YT + Telegram + Cursor Europe.' -ForegroundColor Green
     Write-Host 'Esli sposob ne rabotaet - perekljuchaetsya na sledujushchij.' -ForegroundColor Gray
+    Write-Host 'Watchdog kazhdye 2 min: esli tunnel upal, Cursor proxy snimaetsya (net reconnect loop).' -ForegroundColor Gray
     Write-Host ''
     exit 0
 } catch {
