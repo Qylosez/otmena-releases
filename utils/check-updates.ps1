@@ -1,6 +1,10 @@
 #Requires -Version 3.0
 param([switch]$Quiet)
 
+$ProgressPreference = 'SilentlyContinue'
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+} catch {}
 $ErrorActionPreference = 'SilentlyContinue'
 $rootDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $configFile = Join-Path $PSScriptRoot 'update-config.json'
@@ -10,11 +14,6 @@ function Get-LocalVersion {
     if (Test-Path $appVersionFile) {
         $v = (Get-Content $appVersionFile -Raw).Trim()
         if ($v) { return $v }
-    }
-    $serviceBat = Join-Path $rootDir 'scripts\service.bat'
-    if (Test-Path $serviceBat) {
-        $m = Select-String -Path $serviceBat -Pattern 'LOCAL_VERSION=([^\r\n]+)' | Select-Object -First 1
-        if ($m) { return $m.Matches[0].Groups[1].Value.Trim('"') }
     }
     return '0.0.0'
 }
@@ -72,7 +71,9 @@ function Get-GithubReleaseInfo {
 
         $asset = $release.assets | Where-Object { $_.name -eq $PackageFile } | Select-Object -First 1
         if (-not $asset) {
-            $asset = $release.assets | Where-Object { $_.name -like '*.zip' } | Select-Object -First 1
+            $asset = $release.assets | Where-Object {
+                $_.name -like '*.zip' -and $_.name -notmatch 'xray' -and $_.name -notmatch 'windows-64'
+            } | Select-Object -First 1
         }
         if (-not $asset) {
             throw "asset not found: $PackageFile"

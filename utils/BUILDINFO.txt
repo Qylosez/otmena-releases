@@ -1,3 +1,8 @@
-Otmena build 1.0.9
+Otmena build 1.1.22
 Date: 2026-09-15
-Includes: Start=DS/YT+Telegram+Cursor Europe, autostart watchdog, Google hostlist, no dead Cursor proxy
+Start = Discord/YouTube + Telegram + Cursor Europe (one button)
+Fix: no Cursor proxy unless tunnel actually answers (stops reconnect loop)
+Fix: Electron argv.json + HTTP/2 off
+Fix: autostart runs full Start including Cursor Europe
+Add: Cursor EU status tile
+Google hostlist: gstatic/accounts/fonts

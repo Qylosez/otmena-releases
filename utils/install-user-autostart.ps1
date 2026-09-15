@@ -18,7 +18,6 @@ $shortcut.Save()
 
 Write-Host "Startup shortcut: $linkPath"
 
-& (Join-Path $PSScriptRoot 'install-watchdog.ps1') | Out-Null
 try {
     & (Join-Path $PSScriptRoot 'launcher.ps1') -Action start -Quiet
 } catch {

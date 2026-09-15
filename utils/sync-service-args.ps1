@@ -43,6 +43,5 @@ if (-not $segment.StartsWith('--')) {
     throw 'Parsed winws arguments look invalid.'
 }
 
-$line = '"' + $segment
-[System.IO.File]::WriteAllText($outFile, $line, [System.Text.UTF8Encoding]::new($false))
+[System.IO.File]::WriteAllText($outFile, $segment, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Updated $outFile"

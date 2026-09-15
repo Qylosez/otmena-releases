@@ -1,0 +1,10 @@
+{
+  "url": "https://key.vpn.dance/connect?key=a99adf937ffa7b9957ee",
+  "prefer": [
+    "grpc",
+    "tcp",
+    "ws"
+  ],
+  "probeUrl": "https://api2.cursor.sh",
+  "notes": "vpn.dance VLESS (Poland). SOCKS 10808, HTTP 10809, SOCKS 10810."
+}

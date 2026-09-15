@@ -40,26 +40,24 @@ $startupAuto = Test-StartupAutostart
 $autoType = 'none'
 if ($taskAuto) { $autoType = 'task' }
 elseif ($startupAuto) { $autoType = 'startup' }
-$watchdogTask = [bool](Get-ScheduledTask -TaskName 'Otmena-Watchdog' -ErrorAction SilentlyContinue)
-
-$cursorPort = Test-PortListen 10809
-$cursorProxy = $false
-$cursorState = Join-Path $PSScriptRoot 'cursor-proxy.state.json'
-if (Test-Path $cursorState) {
-    try {
-        $st = Get-Content $cursorState -Raw | ConvertFrom-Json -ErrorAction Stop
-        $cursorProxy = [bool]$st.enabled
-    } catch {}
-}
 
 Write-Output ("ZAPRET={0}" -f [int]$zapret)
+Write-Output ("ZAPRET_ADMIN_OK={0}" -f [int]($isAdmin -or (Get-ScheduledTask -TaskName 'Otmena-Winws' -ErrorAction SilentlyContinue)))
 Write-Output ("TG={0}" -f [int]($tgPort -or $tgProc))
-Write-Output ("CURSOR={0}" -f [int]($cursorPort -and $cursorProxy))
-Write-Output ("CURSOR_TUNNEL={0}" -f [int]$cursorPort)
-Write-Output ("CURSOR_PROXY={0}" -f [int]$cursorProxy)
 Write-Output ("ADMIN={0}" -f [int]$isAdmin)
 Write-Output ("AUTO={0}" -f [int]($taskAuto -or $startupAuto))
 Write-Output ("AUTO_TYPE={0}" -f $autoType)
 Write-Output ("WORK={0}" -f [int]$workMode)
-Write-Output ("WATCHDOG={0}" -f [int]$watchdogTask)
 Write-Output ("XRAY={0}" -f [int](Test-Path (Join-Path $rootDir 'telegram-vless\bin\xray.exe')))
+Write-Output ("TG_PORT={0}" -f [int](Test-PortListen 10808))
+Write-Output ("TUNNEL={0}" -f [int](Test-PortListen 10809))
+Write-Output ("TUNNEL_SOCKS={0}" -f [int](Test-PortListen 10810))
+. (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
+$cursorDiag = Get-CursorTunnelDiagnostics
+Write-Output ("CURSOR={0}" -f [int](($cursorDiag.TUNNEL_UP -eq 1) -and ($cursorDiag.PROXY_SET -eq 1)))
+Write-Output ("CURSOR_MODE={0}" -f $cursorDiag.MODE)
+Write-Output ("CURSOR_PROXY={0}" -f $cursorDiag.PROXY_SET)
+Write-Output ("CURSOR_SOCKS_LIVE={0}" -f $cursorDiag.SOCKS_LIVE)
+Write-Output ("CURSOR_HTTP_LIVE={0}" -f $cursorDiag.HTTP_LIVE)
+$subFile = Join-Path $rootDir 'telegram-vless\subscription.json'
+Write-Output ("SUB={0}" -f [int](Test-Path $subFile))

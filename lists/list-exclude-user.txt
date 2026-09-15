@@ -1,23 +1,18 @@
-# Cursor IDE + AI backends (do not DPI-bypass - leftover direct connections)
+# Cursor IDE + AI backends (do not DPI-bypass - fixes model catalog / reconnect)
 cursor.com
 www.cursor.com
 cursor.sh
-www.cursor.sh
 api2.cursor.sh
 api2geo.cursor.sh
 api2direct.cursor.sh
 api3.cursor.sh
 api4.cursor.sh
 api5.cursor.sh
-api6.cursor.sh
 agent.api5.cursor.sh
 agentn.api5.cursor.sh
 repo42.cursor.sh
 authenticator.cursor.sh
 authenticate.cursor.sh
-us-west-1.gcpp.cursor.sh
-us-east-1.gcpp.cursor.sh
-europe-west-1.gcpp.cursor.sh
 marketplace.cursorapi.com
 cursorapi.com
 cursor-cdn.com
@@ -33,5 +28,3 @@ claude.ai
 oaiusercontent.com
 cognitiveservices.azure.com
 openai.azure.com
-anysphere.co
-anysphere.xyz

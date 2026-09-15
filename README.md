@@ -2,9 +2,9 @@
 
 **Otmena** — программа для Windows, которая помогает открыть **Discord**, **YouTube** и **Telegram**, когда они заблокированы провайдером или корпоративной политикой.
 
-Один файл `Otmena.exe`, без установки в систему. Запустил — нажал **Запустить всё** — поднимаются Discord/YouTube, Telegram и **Cursor через Europe**. Отдельная кнопка Cursor больше не нужна.
+Один файл `Otmena.exe`, без установки в систему. Запустил — нажал **Запустить** — сервисы сами подбирают рабочий способ подключения.
 
-> Основано на [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) **1.9.8c**, доработано под удобный запуск с рабочих ПК.
+> Основано на [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) **1.10.1**, доработано под удобный запуск с рабочих ПК. Telegram и Cursor идут через ключ [vpn.dance](https://vpn.dance) (VLESS Reality, Польша).
 
 ---
 
@@ -13,10 +13,9 @@
 | Сервис | Как работает |
 |--------|----------------|
 | **Discord / YouTube** | Обход DPI через `winws.exe` (нужны права администратора) |
-| **Telegram** | Локальный SOCKS через VLESS (xray) или резервный MTProto-прокси |
+| **Telegram** | Локальный SOCKS через VLESS (xray + ключ vpn.dance) или резервный MTProto-прокси |
 | **Авто-переключение** | Если один способ не сработал — пробует следующий |
-| **Cursor Europe** | Cursor/AI идёт через тот же шифрованный туннель, что и Telegram (Польша). Входит в **Запустить всё** и в автозапуск |
-| **Автозапуск** | При входе в Windows — тот же полный запуск, плюс watchdog раз в 2 минуты |
+| **Автозапуск** | Можно включить при входе в Windows |
 | **Обновления** | Кнопка **Обновления** — скачивает новую версию с GitHub |
 
 ---
@@ -32,13 +31,20 @@
 
 ## Установка
 
-### Из Releases (рекомендуется)
+### Вариант 1 — из Releases (рекомендуется)
 
-1. Открой [Releases](https://github.com/Qylosez/otmena-releases/releases) (или скачай архив из этого репозитория).
-2. Распакуй папку куда удобно, например `C:\Otmena\`.
-3. Запусти **`Otmena.exe`**.
+1. Открой [Releases](https://github.com/Qylosez/otmena-releases/releases).
+2. Скачай **`Otmena-update.zip`** (~3–4 МБ, без xray — так проще залить на GitHub).
+3. Распакуй, например в `C:\Otmena\`.
+4. Запусти **`Otmena.exe`** от администратора.
+5. При первом запуске **xray** для Telegram скачается сам (нужен `xray-windows-64.zip` в Releases или доступ к GitHub).
+6. Быстрый патч на чужой ПК: `utils\deploy-hotfix.ps1 -TargetFolder "D:\путь\к\Otmena"`.
 
 > Не клади папку в `Program Files` — так проще обновлять и удалять.
+
+### Вариант 2 — уже есть папка от коллеги
+
+Скопируй всю папку на свой ПК и запусти `Otmena.exe`. Больше ничего ставить не нужно.
 
 ---
 
@@ -46,37 +52,38 @@
 
 1. **ПКМ → Запуск от имени администратора** (важно для Discord/YouTube).
 2. При первом открытии появится подсказка — можно сворачивать в **трей** при закрытии окна.
-3. Нажми **▶ Запустить всё**.
+3. Нажми **▶ Запустить**.
 4. Смотри на плитки статуса вверху:
 
 | Плитка | Зелёный | Красный |
 |--------|---------|---------|
 | **Discord / YouTube** | Обход работает | Не запустился (см. [проблемы](#частые-проблемы)) |
 | **Telegram** | Прокси поднят | Нужна ручная настройка MTProto |
-| **Cursor EU** | Туннель 10809 + прокси в Cursor | Туннель не поднялся — IDE не трогаем (нет reconnect loop) |
 | **Права** | Запущено от админа | Запусти от администратора |
 | **Автозапуск** | Включён | Выключен |
 | **Work mode** | Режим для рабочего ПК | Обычный режим |
 
-5. Если Cursor всё ещё **Reconnecting** — полностью закрой Cursor (все окна) и открой снова. Прокси пишется в `settings.json` и в `argv.json`, без перезапуска IDE он не подхватится.
-6. Для Telegram, если не заработало само — **Добавить MTProto в Telegram** и включи прокси в приложении.
+5. Для Telegram, если не заработало само — **Добавить MTProto в Telegram** и включи прокси в приложении.
+
+Ключ VLESS берётся из подписки vpn.dance (`telegram-vless\subscription.json`). При **Запустить** Otmena обновляет профили (TCP Reality 8444, gRPC 8443, WS 8447) и поднимает SOCKS `127.0.0.1:10808` / HTTP `10809`.
 
 ---
 
 ## Интерфейс — что нажимать
 
 ### Действия
-- **Запустить всё** — Discord/YouTube + Telegram + Cursor Europe (с авто-переключением способов). Отдельная кнопка Cursor не нужна.
-- **Остановить** — выключить всё, снять прокси из Cursor.
+- **Запустить** — включить Discord/YouTube + Telegram (с авто-переключением способов).
+- **Остановить** — выключить всё.
 - **Проверить** — тест всех методов с результатом ✓/✗ в журнале.
 
 ### Telegram
 - **Добавить MTProto в Telegram** — добавить прокси `proxy-dag.ru` в Telegram. Если не откроется автоматически — покажет данные для ручного ввода.
 
 ### Система
-- **Автозапуск ВКЛ / ВЫКЛ** — запуск Otmena при входе в Windows (полный Start, включая Cursor Europe + watchdog).
+- **Автозапуск ВКЛ / ВЫКЛ** — запуск Otmena при входе в Windows.
 - **Work mode** — для **рабочих ПК** с Secret Net и блокировкой служб Windows (см. ниже).
 - **От администратора** — перезапуск с правами админа.
+- **Cursor exclude** — если после запуска Otmena перестал работать **Cursor** или другая IDE.
 - **Диагностика** — скопировать отчёт в буфер (удобно отправить тому, кто настраивал).
 - **Обновления** — проверить и установить новую версию с GitHub.
 - **Выключить всё** — остановить, не удаляя папку.
@@ -111,18 +118,11 @@ Otmena.exe /minimized
 
 ---
 
-## Work mode и Cursor Europe — простыми словами
+## Work mode и Cursor exclude — простыми словами
 
 **Work mode** — режим без службы Windows. Нужен на ПК с Secret Net, где системные службы запрещены. Включай на рабочих компах.
 
-**Cursor Europe** — часть **Запустить всё**. Cursor не гоняется через zapret (это ломало TLS и давало бесконечный Reconnecting). Вместо этого:
-
-1. Поднимается локальный xray: Telegram `10808`, Cursor HTTP `10809`, SOCKS `10810`.
-2. Если порт **10809 жив и туннель отвечает** — в Cursor прописывается прокси (settings + Electron argv, HTTP/2 выкл).
-3. Если туннель **не поднялся** — прокси в Cursor **не пишется**. Иначе IDE крутит reconnect в пустоту.
-4. Watchdog раз в 2 минуты: xray/winws упали → поднять; 10809 мёртв → снять прокси.
-
-После **Запустить всё** или автозапуска **перезапусти Cursor**.
+**Cursor exclude** — добавляет Cursor/IDE в исключения, чтобы Otmena не ломала интернет в редакторе кода. Жми, если Cursor тормозит после запуска Otmena.
 
 ---
 
@@ -140,16 +140,6 @@ Otmena.exe /minimized
 ---
 
 ## Частые проблемы
-
-### Cursor бесконечно Reconnecting
-- Нажми **Запустить всё**, дождись зелёной плитки **Cursor EU**.
-- Полностью закрой Cursor и открой снова.
-- Если плитка красная — туннель не поднялся, Otmena специально **не** ставит прокси (это и был reconnect loop).
-- Нажми **Остановить**, перезапусти Cursor, потом снова **Запустить всё**.
-
-### Google / YouTube отваливаются через день
-- Это типично для DPI: провайдер меняет фильтр. Нажми **Запустить всё** ещё раз (переподнимет winws).
-- Автозапуск + watchdog поднимают обход после входа в Windows без лишних кнопок.
 
 ### Discord / YouTube не работают
 - Запусти **от администратора**.
@@ -186,24 +176,75 @@ Telegram не принимает ссылки `tg://`. Установи Telegram
 Otmena.exe              ← запускай это
 bin\                    ← движок обхода (winws, WinDivert)
 lists\                  ← списки сайтов
-telegram-vless\         ← настройки и xray для Telegram
+telegram-vless\         ← xray + подписка vpn.dance (Telegram и Cursor)
 utils\                  ← служебные скрипты (не трогать без нужды)
 scripts\                ← внутренние bat-файлы
 ```
 
 ---
 
-## Для maintainer'а (кто собирает и выкладывает версии)
+## Как выложить на GitHub (один репозиторий)
+
+Используется **только** [Qylosez/otmena-releases](https://github.com/Qylosez/otmena-releases):
+- **README** — описание на главной репозитория
+- **Releases** — готовый zip для скачивания и кнопки «Обновления»
+
+Через браузер zip **> 25 МБ** не залить — только через команду ниже.
+
+### Один раз — настройка
+
+1. Создай репозиторий: https://github.com/new → имя **`otmena-releases`** → Public → без README
+2. Установи и войди:
+   ```powershell
+   winget install Git.Git
+   winget install GitHub.cli
+   gh auth login
+   ```
+3. Залей README на GitHub:
+   ```powershell
+   cd C:\Users\пользователь\Desktop\zapret4
+   git init
+   git add README.md
+   git commit -m "README"
+   git branch -M main
+   git remote add origin https://github.com/Qylosez/otmena-releases.git
+   git push -u origin main
+   ```
+
+### Каждый раз — когда обновил программу
 
 ```powershell
-cd app
+cd C:\Users\пользователь\Desktop\zapret4\app
 .\build-app.ps1
 
 cd ..\utils
 .\publish-update.ps1 -GitHubRepo "Qylosez/otmena-releases" -Bump
 ```
 
-Требуется [GitHub CLI](https://cli.github.com): `gh auth login`
+**Один раз** (и при обновлении Xray) — положи в тот же Release файл **`xray-windows-64.zip`** (~35 МБ), чтобы у пользователей xray ставился при первом запуске:
+
+```powershell
+.\publish-xray-asset.ps1 -PublishPath "$env:USERPROFILE\Desktop\otmena-publish"
+```
+
+Загрузи `xray-windows-64.zip` в Release рядом с `Otmena-update.zip` (через Draft release → Attach).
+
+Если менял README:
+```powershell
+cd C:\Users\пользователь\Desktop\zapret4
+git add README.md
+git commit -m "update readme"
+git push
+```
+
+### Что говорить людям
+
+> Скачай **Otmena-update.zip** из [Releases](https://github.com/Qylosez/otmena-releases/releases) → распакуй → **Otmena.exe** от администратора.  
+> Обновления — кнопка **Обновления** в программе.
+
+---
+
+## Для maintainer'а
 
 ---
 
@@ -218,4 +259,4 @@ cd ..\utils
 
 [Qylosez](https://github.com/Qylosez)
 
-Если нашёл баг или есть предложение — создай Issue в репозитории.
+Если нашёл баг — создай Issue в [otmena-releases](https://github.com/Qylosez/otmena-releases/issues).

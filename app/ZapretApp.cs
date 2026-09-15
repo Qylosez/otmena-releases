@@ -96,7 +96,7 @@ public class ZapretApp : Form
         };
         subtitleLabel = new Label
         {
-            Text = "Discord · YouTube · Telegram · Cursor",
+            Text = "Discord · YouTube · Telegram · Cursor · zapret 1.10.1",
             ForeColor = Theme.Muted,
             Font = new Font("Segoe UI", 10f),
             AutoSize = true,
@@ -119,14 +119,14 @@ public class ZapretApp : Form
         var btnTest = MakeGhostButton("⚡  Проверить", 246, 322, 210, 40);
 
         var lblTg = SectionLabel("Telegram", 376);
-        btnMtproto = MakeAccentButton("Добавить MTProto в Telegram", 24, 400, 432, 40);
+        btnMtproto = MakeAccentButton("Прокси в Telegram", 24, 400, 432, 40);
 
         var lblSys = SectionLabel("Система", 454);
         var btnAutoOn = MakeGhostButton("Автозапуск ВКЛ", 24, 478, 210, 36);
         var btnAutoOff = MakeGhostButton("Автозапуск ВЫКЛ", 246, 478, 210, 36);
         var btnWork = MakeGhostButton("Work mode", 24, 522, 210, 36);
         var btnAdmin = MakeGhostButton("От администратора", 246, 522, 210, 36);
-        var btnDiag = MakeGhostButton("Диагностика", 24, 566, 210, 36);
+        var btnDiag = MakeGhostButton("🔍  Проверка", 24, 566, 210, 36);
         var btnUpdates = MakeGhostButton("Обновления", 246, 566, 210, 36);
         var btnClean = MakeGhostButton("Выключить всё", 24, 610, 432, 36);
 
@@ -186,15 +186,15 @@ public class ZapretApp : Form
 
         btnStart.Click += (s, e) => RunLauncher("start", "Запуск DS/YT, Telegram и Cursor Europe...");
         btnStop.Click += (s, e) => RunLauncher("stop", "Остановка...");
-        btnTest.Click += (s, e) => RunTest();
-        btnAutoOn.Click += (s, e) => RunPsScript("install-autostart-smart.ps1", false, "Автозапуск включён (со Start + Cursor Europe).", "Не удалось включить автозапуск.");
+        btnTest.Click += (s, e) => RunHealthCheck(false);
+        btnAutoOn.Click += (s, e) => RunPsScript("install-autostart-smart.ps1", false, "Автозапуск включён (Start + Cursor Europe).", "Не удалось включить автозапуск.");
         btnAutoOff.Click += (s, e) => RunPsScript("remove-autostart.ps1", false, "Автозапуск выключен.", "Ошибка отключения автозапуска.");
         btnWork.Click += (s, e) => RunPsScript("toggle-work-mode.ps1", false, "Work mode переключён.", "Не удалось переключить work mode.");
         btnAdmin.Click += (s, e) => RestartAsAdmin();
-        btnDiag.Click += (s, e) => CopyDiagnostics();
+        btnDiag.Click += (s, e) => RunHealthCheck(true);
         btnUpdates.Click += (s, e) => CheckUpdates();
         btnClean.Click += (s, e) => RunPsScript("uninstall-all.ps1", false, "Всё выключено.", "Ошибка при остановке.");
-        btnMtproto.Click += (s, e) => RunMtProto();
+        btnMtproto.Click += (s, e) => RunTelegramSocks();
         btnDelete.Click += (s, e) => ConfirmDelete();
 
         Controls.AddRange(new Control[]
@@ -460,7 +460,7 @@ public class ZapretApp : Form
         bw.RunWorkerAsync();
     }
 
-    private int RunHidden(string file, string args)
+    private int RunHidden(string file, string args, int timeoutMs = 90000)
     {
         var psi = new ProcessStartInfo
         {
@@ -472,29 +472,19 @@ public class ZapretApp : Form
             WindowStyle = ProcessWindowStyle.Hidden
         };
         var p = Process.Start(psi);
-        p.WaitForExit();
+        if (!p.WaitForExit(timeoutMs))
+        {
+            try { p.Kill(); } catch { }
+            try { p.WaitForExit(3000); } catch { }
+            return -1;
+        }
         return p.ExitCode;
     }
 
-    private string RunPsCapture(string scriptName)
+    private string RunPsCapture(string scriptName, int timeoutMs = 60000)
     {
-        var script = Path.Combine(utilsDir, scriptName);
-        var psi = new ProcessStartInfo
-        {
-            FileName = "powershell.exe",
-            Arguments = "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"" + script + "\"",
-            WorkingDirectory = rootDir,
-            CreateNoWindow = true,
-            UseShellExecute = false,
-            RedirectStandardOutput = true,
-            StandardOutputEncoding = Encoding.UTF8
-        };
-        using (var p = Process.Start(psi))
-        {
-            var output = p.StandardOutput.ReadToEnd();
-            p.WaitForExit();
-            return output ?? string.Empty;
-        }
+        var result = RunScriptCapture(scriptName, null, timeoutMs);
+        return result.Output ?? string.Empty;
     }
 
     private void RunLauncher(string action, string startMsg)
@@ -513,6 +503,10 @@ public class ZapretApp : Form
             {
                 AppendLog("Готово.", Theme.Ok);
             }
+            else if (code == -1)
+            {
+                AppendLog("Запуск слишком долгий — прерван. Нажми Запустить ещё раз.", Theme.Warn);
+            }
             else
             {
                 AppendLog("Не всё запустилось (код " + code + ").", Theme.Bad);
@@ -523,8 +517,6 @@ public class ZapretApp : Form
             if (action == "start")
             {
                 MaybeCorpTelegramHint();
-                if (code == 0)
-                    AppendLog("Cursor Europe входит в Запустить. Если IDE reconnecting — полностью перезапусти Cursor.", Theme.Warn);
                 if (code != 0 && !xrayAvailable)
                     ShowMtProtoSetup(LoadMtProtoConfig());
             }
@@ -618,7 +610,7 @@ public class ZapretApp : Form
         public string Output = string.Empty;
     }
 
-    private ScriptResult RunScriptCapture(string scriptName, string extraArgs = null)
+    private ScriptResult RunScriptCapture(string scriptName, string extraArgs = null, int timeoutMs = 60000)
     {
         var script = Path.Combine(utilsDir, scriptName);
         var args = "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File \"" + script + "\"";
@@ -632,32 +624,39 @@ public class ZapretApp : Form
             CreateNoWindow = true,
             UseShellExecute = false,
             RedirectStandardOutput = true,
-            StandardOutputEncoding = Encoding.UTF8
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
         };
         using (var p = Process.Start(psi))
         {
-            var output = p.StandardOutput.ReadToEnd();
+            var output = new StringBuilder();
+            p.OutputDataReceived += (s, ev) => { if (ev.Data != null) lock (output) output.AppendLine(ev.Data); };
+            p.ErrorDataReceived += (s, ev) => { if (ev.Data != null) lock (output) output.AppendLine(ev.Data); };
+            p.BeginOutputReadLine();
+            p.BeginErrorReadLine();
+            if (!p.WaitForExit(timeoutMs))
+            {
+                try { p.Kill(); } catch { }
+                try { p.WaitForExit(3000); } catch { }
+                lock (output) output.AppendLine("ERROR=timeout");
+                string hung;
+                lock (output) hung = output.ToString();
+                return new ScriptResult { ExitCode = -1, Output = hung };
+            }
             p.WaitForExit();
-            return new ScriptResult { ExitCode = p.ExitCode, Output = output ?? string.Empty };
+            string text;
+            lock (output) text = output.ToString();
+            return new ScriptResult { ExitCode = p.ExitCode, Output = text };
         }
     }
 
-    private void RunMtProto()
+    private void RunTelegramSocks()
     {
-        var cfg = LoadMtProtoConfig();
-        if (!xrayAvailable)
-        {
-            AppendLog("Настройки MTProto для Telegram...", Theme.Accent2);
-            ShowMtProtoSetup(cfg);
-        }
-        else
-        {
-            AppendLog("MTProto...", Theme.Accent2);
-        }
-
+        AppendLog("Telegram: vpn.dance SOCKS + proxy-dag.ru...", Theme.Accent2);
         SetBusy(true);
         var bw = new BackgroundWorker();
-        bw.DoWork += (s, e) => { e.Result = RunScriptCapture("set-telegram-mtproto.ps1"); };
+        bw.DoWork += (s, e) => { e.Result = RunScriptCapture("apply-telegram.ps1", "-Quiet", 45000); };
         bw.RunWorkerCompleted += (s, e) =>
         {
             SetBusy(false);
@@ -669,30 +668,18 @@ public class ZapretApp : Form
 
             var result = e.Result as ScriptResult;
             if (result == null) return;
-
-            string server = cfg.Server, port = cfg.Port, secret = cfg.Secret;
-            foreach (var line in result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            var socks = result.Output.IndexOf("TG_SOCKS=1") >= 0;
+            var mt = result.Output.IndexOf("TG_MTPROTO=1") >= 0;
+            var xray = result.Output.IndexOf("XRAY=1") >= 0;
+            if (xray) AppendLog("xray (vpn.dance) на 127.0.0.1:10808", Theme.Ok);
+            if (socks) AppendLog("SOCKS добавлен в Telegram — включи его в списке прокси.", Theme.Ok);
+            if (mt) AppendLog("proxy-dag.ru добавлен в Telegram (запасной).", Theme.Ok);
+            if (!socks && !mt)
             {
-                if (line.StartsWith("SERVER=")) server = line.Substring(7);
-                if (line.StartsWith("PORT=")) port = line.Substring(5);
-                if (line.StartsWith("SECRET=")) secret = line.Substring(7);
+                AppendLog("Telegram не принял ссылку. Открой Telegram Desktop и нажми ещё раз.", Theme.Warn);
+                ShowMtProtoSetup(LoadMtProtoConfig());
             }
-
-            if (result.ExitCode == 0)
-            {
-                AppendLog("MTProto добавлен — включи proxy-dag.ru в Telegram.", Theme.Ok);
-                return;
-            }
-
-            if (result.ExitCode == 2)
-            {
-                AppendLog("tg:// не открылся — вставь данные из окна в Telegram.", Theme.Warn);
-                ShowMtProtoSetup(new MtProtoConfig { Server = server, Port = port, Secret = secret });
-                return;
-            }
-
-            AppendLog("Ошибка MTProto (код " + result.ExitCode + ").", Theme.Bad);
-            ShowMtProtoSetup(new MtProtoConfig { Server = server, Port = port, Secret = secret });
+            RefreshStatusAsync(true);
         };
         bw.RunWorkerAsync();
     }
@@ -739,13 +726,13 @@ public class ZapretApp : Form
         if (subtitleLabel == null || btnMtproto == null) return;
         if (!xrayAvailable)
         {
-            subtitleLabel.Text = "Discord · YouTube · Telegram (MTProto) · Cursor";
-            btnMtproto.Text = "Настройки Telegram — скопировать MTProto";
+            subtitleLabel.Text = "Discord · YouTube · Telegram · Cursor · zapret 1.10.1";
+            btnMtproto.Text = "Настроить SOCKS в Telegram";
         }
         else
         {
-            subtitleLabel.Text = "Discord · YouTube · Telegram · Cursor";
-            btnMtproto.Text = "Добавить MTProto в Telegram";
+            subtitleLabel.Text = "Discord · YouTube · Telegram · Cursor · zapret 1.10.1";
+            btnMtproto.Text = "Настроить SOCKS в Telegram";
         }
     }
 
@@ -768,7 +755,7 @@ public class ZapretApp : Form
         try { File.WriteAllText(flag, DateTime.Now.ToString("o"), Encoding.UTF8); } catch { }
     }
 
-    private void RunPsScript(string name, bool needAdmin, string doneMsg, string failMsg)
+    private void RunPsScript(string name, bool needAdmin, string doneMsg, string failMsg, string extraArgs = null)
     {
         if (needAdmin && !IsAdmin())
         {
@@ -777,7 +764,10 @@ public class ZapretApp : Form
         }
         AppendLog(name.Replace(".ps1", "") + "...", Theme.Accent2);
         var script = Path.Combine(utilsDir, name);
-        RunPs("-File \"" + script + "\"", code =>
+        var args = "-File \"" + script + "\"";
+        if (!string.IsNullOrEmpty(extraArgs))
+            args += " " + extraArgs;
+        RunPs(args, code =>
         {
             if (code == 0)
                 AppendLog(doneMsg, Theme.Ok);
@@ -786,31 +776,94 @@ public class ZapretApp : Form
         });
     }
 
-    private void CopyDiagnostics()
+    private void RunHealthCheck(bool copyFullDiag)
     {
-        AppendLog("Сбор диагностики...", Theme.Accent2);
+        AppendLog("Проверка Otmena...", Theme.Accent2);
         SetBusy(true);
         var bw = new BackgroundWorker();
-        bw.DoWork += (s, e) => { e.Result = RunPsCapture("export-diagnostics.ps1"); };
+        bw.DoWork += (s, e) =>
+        {
+            var health = RunScriptCapture("run-health-check.ps1", "-Quiet", 90000);
+            string full = null;
+            if (copyFullDiag)
+            {
+                full = RunPsCapture("export-diagnostics.ps1");
+            }
+            e.Result = new object[] { health, full };
+        };
         bw.RunWorkerCompleted += (s, e) =>
         {
             SetBusy(false);
             if (e.Error != null)
             {
-                AppendLog("Ошибка: " + e.Error.Message, Theme.Bad);
+                AppendLog("Ошибка проверки: " + e.Error.Message, Theme.Bad);
                 return;
             }
-            try
+
+            var pair = e.Result as object[];
+            var health = pair != null && pair.Length > 0 ? pair[0] as ScriptResult : null;
+            var full = pair != null && pair.Length > 1 ? pair[1] as string : null;
+
+            var inReport = false;
+            var issueCount = 0;
+            if (health != null)
             {
-                Clipboard.SetText(e.Result as string ?? string.Empty);
-                AppendLog("Диагностика скопирована в буфер обмена.", Theme.Ok);
+                foreach (var line in health.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (line.StartsWith("CHECK_FAIL="))
+                    {
+                        issueCount++;
+                        var parts = line.Substring(11).Split(new[] { '|' }, 2);
+                        var area = parts.Length > 0 ? parts[0] : "?";
+                        var msg = parts.Length > 1 ? parts[1] : line;
+                        AppendLog("✗ " + area + ": " + msg, Theme.Bad);
+                    }
+                    else if (line.StartsWith("CHECK_FIX="))
+                    {
+                        var parts = line.Substring(10).Split(new[] { '|' }, 2);
+                        var fix = parts.Length > 1 ? parts[1] : line;
+                        AppendLog("→ " + fix, Theme.Warn);
+                    }
+                    else if (line.StartsWith("CHECK_OK="))
+                    {
+                        var parts = line.Substring(9).Split(new[] { '|' }, 2);
+                        var area = parts.Length > 0 ? parts[0] : "?";
+                        var msg = parts.Length > 1 ? parts[1] : "OK";
+                        AppendLog("✓ " + area + ": " + msg, Theme.Ok);
+                    }
+                    else if (line.StartsWith("HEALTH_EXIT="))
+                    {
+                        int.TryParse(line.Substring(12), out issueCount);
+                    }
+                }
             }
-            catch
+
+            if (issueCount == 0)
+                AppendLog("Проблем не найдено. Если Cursor не работает — File → Exit и открой снова.", Theme.Ok);
+            else
+                AppendLog("Найдено проблем: " + issueCount + ". Смотри ✗ и → выше.", Theme.Warn);
+
+            if (copyFullDiag && !string.IsNullOrEmpty(full))
             {
-                AppendLog("Не удалось скопировать в буфер.", Theme.Bad);
+                try
+                {
+                    Clipboard.SetText(full);
+                    AppendLog("Полная диагностика скопирована в буфер.", Theme.Muted);
+                }
+                catch
+                {
+                    AppendLog("Не удалось скопировать диагностику.", Theme.Bad);
+                }
             }
+
+            RefreshStatusAsync(false);
         };
         bw.RunWorkerAsync();
+    }
+
+    private void CopyDiagnostics()
+    {
+        RunHealthCheck(true);
     }
 
     private void CheckUpdates()
@@ -818,7 +871,7 @@ public class ZapretApp : Form
         AppendLog("Проверка обновлений...", Theme.Accent2);
         SetBusy(true);
         var bw = new BackgroundWorker();
-        bw.DoWork += (s, e) => { e.Result = RunScriptCapture("check-updates.ps1", "-Quiet"); };
+        bw.DoWork += (s, e) => { e.Result = RunScriptCapture("check-updates.ps1", "-Quiet", 25000); };
         bw.RunWorkerCompleted += (s, e) =>
         {
             SetBusy(false);
@@ -830,6 +883,12 @@ public class ZapretApp : Form
 
             var result = e.Result as ScriptResult;
             if (result == null) return;
+            if (result.ExitCode == -1)
+            {
+                AppendLog("GitHub не ответил (таймаут). Скачай zip вручную с Releases.", Theme.Warn);
+                AppendLog("github.com/Qylosez/otmena-releases/releases", Theme.Muted);
+                return;
+            }
 
             string localV = null, remoteV = null, source = null, packageUrl = null, updateError = null;
             var update = false;
@@ -883,32 +942,73 @@ public class ZapretApp : Form
         bw.RunWorkerAsync();
     }
 
+    private static string ParseUpdateStatus(string output)
+    {
+        if (string.IsNullOrEmpty(output)) return "scheduled";
+        foreach (var line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.StartsWith("STATUS=ok")) return "ok";
+            if (line.StartsWith("STATUS=scheduled")) return "scheduled";
+        }
+        return "scheduled";
+    }
+
     private void InstallUpdate(string packageUrl)
     {
-        AppendLog("Установка обновления...", Theme.Accent2);
+        AppendLog("Скачиваю обновление, не закрывай окно (до 2 минут)...", Theme.Accent2);
         SetBusy(true);
         var bw = new BackgroundWorker();
         bw.DoWork += (s, e) =>
         {
-            var args = "-File \"" + Path.Combine(utilsDir, "apply-update.ps1") + "\" -Quiet";
+            var extra = "-Quiet";
             if (!string.IsNullOrEmpty(packageUrl))
-                args += " -PackageUrl \"" + packageUrl + "\"";
-            e.Result = RunHidden("powershell.exe",
-                "-NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass " + args);
+                extra += " -PackageUrl \"" + packageUrl + "\"";
+            e.Result = RunScriptCapture("apply-update.ps1", extra, 120000);
         };
         bw.RunWorkerCompleted += (s, e) =>
         {
             SetBusy(false);
-            var code = e.Result is int ? (int)e.Result : 1;
+            if (e.Error != null)
+            {
+                AppendLog("Ошибка: " + e.Error.Message, Theme.Bad);
+                return;
+            }
+            var result = e.Result as ScriptResult;
+            var code = result != null ? result.ExitCode : 1;
+            string err = null;
+            if (result != null)
+            {
+                foreach (var line in result.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    if (line.StartsWith("ERROR=")) err = line.Substring(6);
+                    if (line.StartsWith("LOG=")) AppendLog(line.Substring(4), Theme.Muted);
+                }
+            }
             if (code == 0)
             {
-                AppendLog("Обновление запланировано — перезапуск...", Theme.Ok);
-                reallyExit = true;
-                Close();
+                var status = result != null ? ParseUpdateStatus(result.Output) : "scheduled";
+                if (status == "ok")
+                {
+                    AppendLog("Обновление установлено. Перезапусти Otmena.", Theme.Ok);
+                    RefreshStatusAsync(false);
+                }
+                else
+                {
+                    AppendLog("Обновление запланировано — перезапуск...", Theme.Ok);
+                    reallyExit = true;
+                    Close();
+                }
             }
             else
             {
+                if (code == -1)
+                    AppendLog("Скачивание зависло (GitHub не отвечает).", Theme.Bad);
                 AppendLog("Ошибка установки (код " + code + ").", Theme.Bad);
+                if (!string.IsNullOrEmpty(err))
+                    AppendLog(err, Theme.Warn);
+                AppendLog("GitHub заблокирован? Положи Otmena-update.zip в папку и запусти UPDATE-MANUAL.bat", Theme.Warn);
+                AppendLog("Лог: utils\\update.log", Theme.Muted);
+                AppendLog("Releases: github.com/Qylosez/otmena-releases/releases", Theme.Muted);
             }
         };
         bw.RunWorkerAsync();
@@ -932,7 +1032,6 @@ public class ZapretApp : Form
             sb.AppendLine("• Для Discord/YouTube нужны права администратора.");
         if (noXray)
             sb.AppendLine("• xray ставится при первом запуске. Если не скачался — загрузи xray-windows-64.zip в Releases.");
-        sb.AppendLine("• Одна кнопка «Запустить всё»: Discord/YouTube, Telegram и Cursor через Europe.");
         sb.AppendLine();
         sb.AppendLine("Свернуть в трей при закрытии окна?");
 
@@ -1075,7 +1174,7 @@ public class ZapretApp : Form
         UpdateTelegramUi();
         tileZapret.SetState(zapret, "Онлайн", "Выключен");
         if (!hasXray && !tg)
-            tileTg.SetState(false, "MTProto", "Настроить");
+            tileTg.SetState(false, "SOCKS", "Настроить");
         else
             tileTg.SetState(tg, "Онлайн", "Выключен");
         tileCursor.SetState(cursor, "Europe", "Выключен");

@@ -41,15 +41,17 @@ try {
         -arguments "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launcher`" -Action start -Quiet" `
         -workDir $rootDir -highest $true
 
+    $winwsPs = Join-Path $PSScriptRoot 'start-winws.ps1'
+    Register-Task -name 'Otmena-Winws' -execute $ps `
+        -arguments "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$winwsPs`" -Quiet" `
+        -workDir $rootDir -highest $true
+
     Write-Step 'Starting now...'
     & $launcher -Action start
-
-    & (Join-Path $PSScriptRoot 'install-watchdog.ps1') | Out-Null
 
     Write-Host ''
     Write-Host 'Gotovo. Pri vhode v Windows avtomat: DS/YT + Telegram + Cursor Europe.' -ForegroundColor Green
     Write-Host 'Esli sposob ne rabotaet - perekljuchaetsya na sledujushchij.' -ForegroundColor Gray
-    Write-Host 'Watchdog kazhdye 2 min: esli tunnel upal, Cursor proxy snimaetsya (net reconnect loop).' -ForegroundColor Gray
     Write-Host ''
     exit 0
 } catch {
