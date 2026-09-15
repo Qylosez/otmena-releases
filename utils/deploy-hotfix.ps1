@@ -29,6 +29,7 @@ $files = @(
     'utils\install-xray.ps1',
     'utils\check-updates.ps1',
     'utils\apply-update.ps1',
+    'utils\bootstrap-update.ps1',
     'utils\export-diagnostics.ps1',
     'utils\get-status.ps1',
     'utils\detect-environment.ps1',

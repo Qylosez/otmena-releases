@@ -1,4 +1,4 @@
-Otmena build 1.1.23
+Otmena build 1.1.24
 Date: 2026-09-15
-Fix: updater downloads GitHub zip via local xray (10808/10809) and mirrors
-Add: DOWNLOAD-UPDATE.bat for blocked GitHub
+Fix: updater uses gh-proxy/ghfast first, keeps xray up until zip is saved
+Add: FIX-UPDATE.bat / bootstrap-update.ps1 for blocked GitHub

@@ -51,13 +51,28 @@ function Test-OtmenaLocalPort([int]$Port) {
     return $false
 }
 
+function Get-OtmenaGithubOriginUrl([string]$Url) {
+    if ([string]::IsNullOrWhiteSpace($Url)) { return $Url }
+    $u = $Url.Trim()
+    if ($u -match '^https://gh-proxy\.com/(.+)$') { return $matches[1] }
+    if ($u -match '^https://ghfast\.top/(.+)$') { return $matches[1] }
+    if ($u -match '^https://ghproxy\.net/(.+)$') { return $matches[1] }
+    return $u
+}
+
 function Get-OtmenaUrlMirrors([string]$Url) {
     $list = New-Object System.Collections.Generic.List[string]
-    [void]$list.Add($Url)
-    if ($Url -match 'https?://github\.com/') {
-        [void]$list.Add(('https://ghfast.top/' + $Url))
-        [void]$list.Add(('https://ghproxy.net/' + $Url))
-        [void]$list.Add(($Url -replace 'https://github.com/', 'https://kkgithub.com/'))
+    $origin = Get-OtmenaGithubOriginUrl $Url
+    if ($origin -match 'https?://github\.com/') {
+        # Mirrors first: github.com is often blackholed (TSPU), a long hang
+        # would skip the rest before the GUI timeout.
+        [void]$list.Add(('https://gh-proxy.com/' + $origin))
+        [void]$list.Add(('https://ghfast.top/' + $origin))
+        [void]$list.Add(('https://ghproxy.net/' + $origin))
+        [void]$list.Add(($origin -replace 'https://github.com/', 'https://kkgithub.com/'))
+        [void]$list.Add($origin)
+    } else {
+        [void]$list.Add($Url)
     }
     return $list.ToArray()
 }
@@ -92,7 +107,7 @@ function Save-OtmenaUrlDirect([string]$Url, [string]$OutFile, [int]$TimeoutSec, 
     }
 }
 
-function Save-OtmenaUrlViaCurl([string]$Url, [string]$OutFile, [string[]]$CurlProxyArgs) {
+function Save-OtmenaUrlViaCurl([string]$Url, [string]$OutFile, [string[]]$CurlProxyArgs, [int]$MaxTimeSec = 45) {
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if (-not $curl) { return $false }
     Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
@@ -100,12 +115,19 @@ function Save-OtmenaUrlViaCurl([string]$Url, [string]$OutFile, [string[]]$CurlPr
     if ($CurlProxyArgs) { foreach ($a in $CurlProxyArgs) { [void]$args.Add($a) } }
     [void]$args.Add('-fsSL')
     [void]$args.Add('-o'); [void]$args.Add($OutFile)
-    [void]$args.Add('--connect-timeout'); [void]$args.Add('20')
-    [void]$args.Add('--max-time'); [void]$args.Add('180')
+    [void]$args.Add('--connect-timeout'); [void]$args.Add('12')
+    [void]$args.Add('--max-time'); [void]$args.Add([string][Math]::Max(20, $MaxTimeSec))
     [void]$args.Add('-A'); [void]$args.Add('Otmena-Updater')
     [void]$args.Add($Url)
     & curl.exe @($args.ToArray()) 2>$null | Out-Null
     return (Test-Path -LiteralPath $OutFile)
+}
+
+function Test-OtmenaDownloadOk([string]$OutFile, [int]$MinBytes) {
+    if ($MinBytes -lt 1000) {
+        return (Test-OtmenaPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -ge $MinBytes)
+    }
+    return (Test-OtmenaZipFile -Path $OutFile -MinBytes $MinBytes)
 }
 
 function Save-OtmenaUrl([string]$Url, [string]$OutFile, [int]$TimeoutSec = 180, [int]$MinBytes = 50000) {
@@ -115,34 +137,37 @@ function Save-OtmenaUrl([string]$Url, [string]$OutFile, [int]$TimeoutSec = 180, 
         New-Item -ItemType Directory -Path $parent -Force | Out-Null
     }
 
+    $mirrors = @(Get-OtmenaUrlMirrors $Url)
     $attempts = New-Object System.Collections.Generic.List[object]
-    foreach ($u in (Get-OtmenaUrlMirrors $Url)) {
-        [void]$attempts.Add(@{ Url = $u; ProxyHttp = $null; Curl = $null })
-        if (Test-OtmenaLocalPort 10809) {
-            [void]$attempts.Add(@{ Url = $u; ProxyHttp = 'http://127.0.0.1:10809'; Curl = @('-x', 'http://127.0.0.1:10809') })
-        }
-        if (Test-OtmenaLocalPort 10808) {
-            [void]$attempts.Add(@{ Url = $u; ProxyHttp = $null; Curl = @('--socks5-hostname', '127.0.0.1:10808') })
-        }
-        if (Test-OtmenaLocalPort 10810) {
-            [void]$attempts.Add(@{ Url = $u; ProxyHttp = $null; Curl = @('--socks5-hostname', '127.0.0.1:10810') })
-        }
+    # Direct mirrors first, short timeout — github.com last (often hangs under TSPU).
+    foreach ($u in $mirrors) {
+        $sec = 12
+        if ($u -match 'github\.com/') { $sec = 10 }
+        [void]$attempts.Add(@{ Url = $u; ProxyHttp = $null; Curl = $null; TimeoutSec = $sec })
+    }
+    $origin = Get-OtmenaGithubOriginUrl $Url
+    if (Test-OtmenaLocalPort 10809) {
+        [void]$attempts.Add(@{ Url = $origin; ProxyHttp = 'http://127.0.0.1:10809'; Curl = @('-x', 'http://127.0.0.1:10809'); TimeoutSec = 30 })
+    }
+    if (Test-OtmenaLocalPort 10808) {
+        [void]$attempts.Add(@{ Url = $origin; ProxyHttp = $null; Curl = @('--socks5-hostname', '127.0.0.1:10808'); TimeoutSec = 30 })
+    }
+    if (Test-OtmenaLocalPort 10810) {
+        [void]$attempts.Add(@{ Url = $origin; ProxyHttp = $null; Curl = @('--socks5-hostname', '127.0.0.1:10810'); TimeoutSec = 30 })
     }
 
     $lastErr = ''
     foreach ($a in $attempts) {
         try {
             Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            $sec = 12
+            if ($a.TimeoutSec) { $sec = [int]$a.TimeoutSec }
             if ($a.Curl) {
-                Save-OtmenaUrlViaCurl -Url $a.Url -OutFile $OutFile -CurlProxyArgs $a.Curl | Out-Null
+                Save-OtmenaUrlViaCurl -Url $a.Url -OutFile $OutFile -CurlProxyArgs $a.Curl -MaxTimeSec $sec | Out-Null
             } else {
-                Save-OtmenaUrlDirect -Url $a.Url -OutFile $OutFile -TimeoutSec $TimeoutSec -ProxyHttp $a.ProxyHttp
+                Save-OtmenaUrlDirect -Url $a.Url -OutFile $OutFile -TimeoutSec $sec -ProxyHttp $a.ProxyHttp
             }
-            if (Test-OtmenaZipFile -Path $OutFile -MinBytes $MinBytes) { return $true }
-            # version.txt and other small files: accept any non-empty if MinBytes is tiny
-            if ($MinBytes -lt 1000 -and (Test-OtmenaPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -ge $MinBytes)) {
-                return $true
-            }
+            if (Test-OtmenaDownloadOk -OutFile $OutFile -MinBytes $MinBytes) { return $true }
             $len = 0
             if (Test-OtmenaPath $OutFile) { $len = (Get-Item -LiteralPath $OutFile).Length }
             $lastErr = "ne zip size=$len"
@@ -152,7 +177,7 @@ function Save-OtmenaUrl([string]$Url, [string]$OutFile, [int]$TimeoutSec = 180, 
     }
 
     Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
-    throw "skachat ne udalos ($lastErr). GitHub zablokirovan. Zapusti Otmena -> Start, ili polozhi Otmena-update.zip v papku i UPDATE-MANUAL.bat"
+    throw "skachat ne udalos ($lastErr). GitHub zablokirovan. Zapusti FIX-UPDATE.bat v papke Otmena, ili polozhi Otmena-update.zip i UPDATE-MANUAL.bat"
 }
 
 function Get-OtmenaPackageUrl {

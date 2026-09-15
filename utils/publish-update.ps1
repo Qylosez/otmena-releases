@@ -60,7 +60,11 @@ if (Test-Path $configFile) {
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
 $includeDirs = @('app', 'bin', 'lists', 'scripts', 'telegram-vless', 'utils')
-$includeFiles = @('Otmena.exe', 'README.md', 'CURSOR-EUROPE-ON.bat', 'CURSOR-EUROPE-OFF.bat', 'CURSOR-DESKTOP-SETUP.md')
+$includeFiles = @(
+    'Otmena.exe', 'README.md', 'CURSOR-EUROPE-ON.bat', 'CURSOR-EUROPE-OFF.bat',
+    'CURSOR-DESKTOP-SETUP.md', 'UPDATE-MANUAL.bat', 'DOWNLOAD-UPDATE.bat', 'FIX-UPDATE.bat',
+    'CHECK.bat', 'ZAPRET-ADMIN.bat', 'CURSOR-FIX.bat', 'CURSOR-WORK.bat'
+)
 
 foreach ($dir in $includeDirs) {
     $src = Join-Path $rootDir $dir

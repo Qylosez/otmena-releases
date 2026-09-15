@@ -130,9 +130,6 @@ function Restore-PreserveFiles([string]$backupDir) {
 
 try {
     Write-UpdateLog '=== update start ==='
-    Get-Process -Name winws, xray -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    taskkill /IM winws.exe /F 2>$null | Out-Null
-    taskkill /IM xray.exe /F 2>$null | Out-Null
 
     $source = Get-PackageSource -Url $PackageUrl
     $tempRoot = Join-Path $env:TEMP ("otmena-update-" + [guid]::NewGuid().ToString())
@@ -142,7 +139,13 @@ try {
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
 
     Save-PreserveFiles -backupDir $backupDir
+    # Download WHILE xray is still up (GitHub is often blocked without the tunnel).
     Save-Package -source $source -zipPath $zipPath
+
+    Get-Process -Name winws, xray -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    taskkill /IM winws.exe /F 2>$null | Out-Null
+    taskkill /IM xray.exe /F 2>$null | Out-Null
+
     Write-UpdateLog 'Unpack...'
     Expand-Zip -zipPath $zipPath -dest $extractDir
 

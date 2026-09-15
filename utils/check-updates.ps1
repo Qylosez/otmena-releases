@@ -79,9 +79,13 @@ function Get-GithubReleaseInfo {
             throw "asset not found: $PackageFile"
         }
 
+        $pkgUrl = [string]$asset.browser_download_url
+        if (-not $pkgUrl) {
+            $pkgUrl = "https://github.com/$repo/releases/download/v$remoteVersion/$PackageFile"
+        }
         return @{
             Version    = $remoteVersion
-            PackageUrl = [string]$asset.browser_download_url
+            PackageUrl = $pkgUrl
             Method     = 'api'
         }
     } catch {

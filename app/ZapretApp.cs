@@ -960,6 +960,12 @@ public class ZapretApp : Form
         var bw = new BackgroundWorker();
         bw.DoWork += (s, e) =>
         {
+            var bootstrap = Path.Combine(utilsDir, "bootstrap-update.ps1");
+            if (File.Exists(bootstrap))
+            {
+                e.Result = RunScriptCapture("bootstrap-update.ps1", "-Quiet -FromGui", 180000);
+                return;
+            }
             var extra = "-Quiet";
             if (!string.IsNullOrEmpty(packageUrl))
                 extra += " -PackageUrl \"" + packageUrl + "\"";
@@ -1007,9 +1013,8 @@ public class ZapretApp : Form
                 if (!string.IsNullOrEmpty(err))
                     AppendLog(err, Theme.Warn);
                 AppendLog("GitHub с этого ПК не качается напрямую.", Theme.Warn);
-                AppendLog("1) Нажми «Запустить всё», подожди 10 сек.", Theme.Muted);
-                AppendLog("2) Запусти DOWNLOAD-UPDATE.bat в папке Otmena.", Theme.Muted);
-                AppendLog("   или положи Otmena-update.zip рядом с Otmena.exe и UPDATE-MANUAL.bat", Theme.Muted);
+                AppendLog("Запусти FIX-UPDATE.bat в папке Otmena (зеркала, без кнопки).", Theme.Muted);
+                AppendLog("Или: Запустить всё → DOWNLOAD-UPDATE.bat", Theme.Muted);
                 AppendLog("Лог: utils\\update.log", Theme.Muted);
             }
         };
