@@ -5,6 +5,7 @@ param(
     [string]$RootDir
 )
 
+# Standalone: works even when dropped onto Otmena 1.1.21 (old otmena-common.ps1).
 $ErrorActionPreference = 'SilentlyContinue'
 $ProgressPreference = 'SilentlyContinue'
 try {
@@ -13,17 +14,84 @@ try {
 
 $here = $PSScriptRoot
 if (-not $here) { $here = Split-Path -Parent $MyInvocation.MyCommand.Path }
-. (Join-Path $here 'otmena-common.ps1')
 
 function Write-BootLog([string]$msg) {
     Write-Output ("LOG={0}" -f $msg)
     if (-not $Quiet) { Write-Host $msg -ForegroundColor Cyan }
 }
 
+function Test-BootZip([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    if ((Get-Item -LiteralPath $Path).Length -lt 200000) { return $false }
+    $fs = [IO.File]::OpenRead($Path)
+    try {
+        return ($fs.ReadByte() -eq 0x50 -and $fs.ReadByte() -eq 0x4B -and $fs.ReadByte() -eq 0x03 -and $fs.ReadByte() -eq 0x04)
+    } finally { $fs.Close() }
+}
+
+function Save-BootZip([string]$OutFile) {
+    $origin = 'https://github.com/Qylosez/otmena-releases/releases/latest/download/Otmena-update.zip'
+    $urls = @(
+        ('https://gh-proxy.com/' + $origin),
+        ('https://ghfast.top/' + $origin),
+        ('https://ghproxy.net/' + $origin),
+        $origin
+    )
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    foreach ($u in $urls) {
+        try {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            if ($curl) {
+                & curl.exe -fsSL --connect-timeout 12 --max-time 90 -A Otmena-Updater -o $OutFile $u 2>$null | Out-Null
+            } else {
+                $req = [Net.HttpWebRequest]::Create($u)
+                $req.Method = 'GET'
+                $req.UserAgent = 'Otmena-Updater'
+                $req.Timeout = 30000
+                $req.ReadWriteTimeout = 90000
+                $req.AllowAutoRedirect = $true
+                $req.Proxy = [Net.GlobalProxySelection]::GetEmptyWebProxy()
+                $resp = $req.GetResponse()
+                $in = $resp.GetResponseStream()
+                $out = [IO.File]::Create($OutFile)
+                try {
+                    $buf = New-Object byte[] 81920
+                    while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
+                } finally { $out.Close(); $in.Close(); $resp.Close() }
+            }
+            if (Test-BootZip $OutFile) { return $true }
+        } catch {}
+    }
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    foreach ($extra in @(
+        @('--socks5-hostname', '127.0.0.1:10808'),
+        @('-x', 'http://127.0.0.1:10809')
+    )) {
+        if (-not $curl) { break }
+        try {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            $cargs = New-Object System.Collections.Generic.List[string]
+            foreach ($a in $extra) { [void]$cargs.Add($a) }
+            [void]$cargs.Add('-fsSL')
+            [void]$cargs.Add('--connect-timeout'); [void]$cargs.Add('12')
+            [void]$cargs.Add('--max-time'); [void]$cargs.Add('90')
+            [void]$cargs.Add('-A'); [void]$cargs.Add('Otmena-Updater')
+            [void]$cargs.Add('-o'); [void]$cargs.Add($OutFile)
+            [void]$cargs.Add($origin)
+            & curl.exe @($cargs.ToArray()) 2>$null | Out-Null
+            if (Test-BootZip $OutFile) { return $true }
+        } catch {}
+    }
+    return $false
+}
+
 function Resolve-OtmenaRoot {
     if ($RootDir -and (Test-Path (Join-Path $RootDir 'Otmena.exe'))) { return (Resolve-Path $RootDir).Path }
-    $fromUtils = (Resolve-Path (Join-Path $here '..')).Path
-    if (Test-Path (Join-Path $fromUtils 'Otmena.exe')) { return $fromUtils }
+    if ($here) {
+        $fromUtils = Join-Path $here '..'
+        if (Test-Path (Join-Path $fromUtils 'Otmena.exe')) { return (Resolve-Path $fromUtils).Path }
+        if (Test-Path (Join-Path $here 'Otmena.exe')) { return (Resolve-Path $here).Path }
+    }
     $proc = Get-Process -Name Otmena -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($proc -and $proc.Path) {
         $d = Split-Path $proc.Path -Parent
@@ -37,7 +105,7 @@ function Resolve-OtmenaRoot {
     )) {
         if (Test-Path (Join-Path $d 'Otmena.exe')) { return $d }
     }
-    throw 'Ne nashla papku Otmena. Zapusti Otmena.exe i povtori, ili polozhi etot skript v papku s Otmena.exe.'
+    throw 'Ne nashla papku Otmena. Zapusti Otmena.exe i povtori.'
 }
 
 try {
@@ -45,11 +113,9 @@ try {
     $root = Resolve-OtmenaRoot
     Write-BootLog "Root: $root"
     $zip = Join-Path $root 'Otmena-update.zip'
-    $url = 'https://github.com/Qylosez/otmena-releases/releases/latest/download/Otmena-update.zip'
-    Write-BootLog 'Download zip (mirrors, then tunnel)...'
-    Save-OtmenaUrl -Url $url -OutFile $zip -TimeoutSec 60 -MinBytes 200000
-    if (-not (Test-OtmenaZipFile -Path $zip -MinBytes 200000)) {
-        throw 'Zip povrezhden posle skachivaniya'
+    Write-BootLog 'Download zip (gh-proxy / ghfast)...'
+    if (-not (Save-BootZip $zip)) {
+        throw 'Ne udalos skachat zip. GitHub zablokirovan, zerkala ne otvetili. Nazhmi Zapustit vsyo i povtori.'
     }
     Write-BootLog ("Zip OK, {0} bytes" -f (Get-Item $zip).Length)
 
@@ -57,7 +123,6 @@ try {
     if (-not (Test-Path $apply)) { throw "Net $apply" }
 
     if ($FromGui) {
-        # Local zip is ready; apply-update without PackageUrl will use it.
         Write-BootLog 'Apply from local zip...'
         & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $apply -Quiet
         $code = $LASTEXITCODE

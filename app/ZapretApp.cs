@@ -871,7 +871,7 @@ public class ZapretApp : Form
         AppendLog("Проверка обновлений...", Theme.Accent2);
         SetBusy(true);
         var bw = new BackgroundWorker();
-        bw.DoWork += (s, e) => { e.Result = RunScriptCapture("check-updates.ps1", "-Quiet", 25000); };
+        bw.DoWork += (s, e) => { e.Result = RunScriptCapture("check-updates.ps1", "-Quiet", 45000); };
         bw.RunWorkerCompleted += (s, e) =>
         {
             SetBusy(false);
@@ -968,7 +968,16 @@ public class ZapretApp : Form
             }
             var extra = "-Quiet";
             if (!string.IsNullOrEmpty(packageUrl))
-                extra += " -PackageUrl \"" + packageUrl + "\"";
+            {
+                var url = packageUrl;
+                if (url.IndexOf("github.com", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                    url.IndexOf("gh-proxy.com", StringComparison.OrdinalIgnoreCase) < 0 &&
+                    url.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    url = "https://gh-proxy.com/" + url;
+                }
+                extra += " -PackageUrl \"" + url + "\"";
+            }
             e.Result = RunScriptCapture("apply-update.ps1", extra, 180000);
         };
         bw.RunWorkerCompleted += (s, e) =>

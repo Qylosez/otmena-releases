@@ -40,6 +40,71 @@ function Read-RemoteVersion([string]$baseUrl, [string]$versionFile) {
     return (Get-Content -Path $path -Raw).Trim()
 }
 
+function Get-GithubOriginUrl([string]$Url) {
+    if ($Url -match '^https://gh-proxy\.com/(.+)$') { return $matches[1] }
+    if ($Url -match '^https://ghfast\.top/(.+)$') { return $matches[1] }
+    if ($Url -match '^https://ghproxy\.net/(.+)$') { return $matches[1] }
+    return $Url
+}
+
+function Get-MirrorPackageUrl([string]$Url) {
+    $origin = Get-GithubOriginUrl $Url
+    if ($origin -match 'https?://github\.com/') {
+        return 'https://gh-proxy.com/' + $origin
+    }
+    return $Url
+}
+
+function Test-UpdateZip([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    $item = Get-Item -LiteralPath $Path
+    if ($item.Length -lt 200000) { return $false }
+    $fs = [IO.File]::OpenRead($Path)
+    try {
+        return ($fs.ReadByte() -eq 0x50 -and $fs.ReadByte() -eq 0x4B -and $fs.ReadByte() -eq 0x03 -and $fs.ReadByte() -eq 0x04)
+    } finally { $fs.Close() }
+}
+
+function Save-UpdateZipQuick([string]$GithubUrl, [string]$OutFile) {
+    $origin = Get-GithubOriginUrl $GithubUrl
+    $urls = New-Object System.Collections.Generic.List[string]
+    if ($origin -match 'https?://github\.com/') {
+        [void]$urls.Add(('https://gh-proxy.com/' + $origin))
+    } else {
+        [void]$urls.Add($GithubUrl)
+    }
+
+    $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
+    foreach ($u in $urls) {
+        try {
+            Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+            if ($curl) {
+                & curl.exe -fsSL --connect-timeout 8 --max-time 12 -A Otmena-Updater -o $OutFile $u 2>$null | Out-Null
+            } else {
+                $req = [Net.HttpWebRequest]::Create($u)
+                $req.Method = 'GET'
+                $req.UserAgent = 'Otmena-Updater'
+                $req.Timeout = 12000
+                $req.ReadWriteTimeout = 16000
+                $req.AllowAutoRedirect = $true
+                $req.Proxy = [Net.GlobalProxySelection]::GetEmptyWebProxy()
+                $resp = $req.GetResponse()
+                $in = $resp.GetResponseStream()
+                $out = [IO.File]::Create($OutFile)
+                try {
+                    $buf = New-Object byte[] 81920
+                    while (($n = $in.Read($buf, 0, $buf.Length)) -gt 0) { $out.Write($buf, 0, $n) }
+                } finally {
+                    $out.Close(); $in.Close(); $resp.Close()
+                }
+            }
+            if (Test-UpdateZip $OutFile) { return $true }
+        } catch {}
+    }
+    Remove-Item -LiteralPath $OutFile -Force -ErrorAction SilentlyContinue
+    return $false
+}
+
 function Get-GithubReleaseInfo {
     param(
         [string]$Repo,
@@ -92,32 +157,63 @@ function Get-GithubReleaseInfo {
         $apiError = $_.Exception.Message
     }
 
-    $verUrl = "https://github.com/$repo/releases/latest/download/version.txt"
-    $pkgUrl = "https://github.com/$repo/releases/latest/download/$PackageFile"
-    try {
-        $remoteVersion = (Invoke-WebRequest -Uri $verUrl -UseBasicParsing -TimeoutSec 15 -Headers @{ 'Cache-Control' = 'no-cache' }).Content.Trim()
-        if (-not $remoteVersion) { throw 'empty version.txt' }
-        return @{
-            Version    = ($remoteVersion -replace '^v', '')
-            PackageUrl = $pkgUrl
-            Method     = 'direct'
+    foreach ($verUrl in @(
+        "https://gh-proxy.com/https://github.com/$repo/releases/latest/download/version.txt",
+        "https://ghfast.top/https://github.com/$repo/releases/latest/download/version.txt",
+        "https://github.com/$repo/releases/latest/download/version.txt"
+    )) {
+        try {
+            $remoteVersion = (Invoke-WebRequest -Uri $verUrl -UseBasicParsing -TimeoutSec 10 -Headers @{ 'Cache-Control' = 'no-cache' }).Content.Trim()
+            if (-not $remoteVersion) { continue }
+            return @{
+                Version    = ($remoteVersion -replace '^v', '')
+                PackageUrl = "https://github.com/$repo/releases/latest/download/$PackageFile"
+                Method     = 'direct'
+            }
+        } catch {}
+    }
+    if ($apiError) { throw "API: $apiError | mirrors failed" }
+    throw 'version.txt unavailable'
+}
+
+function Publish-UpdateInfo {
+    param($Info, [string]$PackageFile)
+    $localVersion = Get-LocalVersion
+    Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
+    Write-Output ("VERSION_REMOTE={0}" -f $Info.Version)
+    Write-Output 'UPDATE_SOURCE=github'
+    $update = [int]($Info.Version -and ($Info.Version -ne $localVersion))
+    Write-Output ("UPDATE_AVAILABLE={0}" -f $update)
+
+    $origin = Get-GithubOriginUrl ([string]$Info.PackageUrl)
+    $packageUrl = Get-MirrorPackageUrl $origin
+    if ($update) {
+        $localZip = Join-Path $rootDir $PackageFile
+        if (Save-UpdateZipQuick -GithubUrl $origin -OutFile $localZip) {
+            $packageUrl = $localZip
+            Write-Output 'UPDATE_METHOD=local-zip'
+        } else {
+            Write-Output ("UPDATE_METHOD={0}" -f $Info.Method)
         }
-    } catch {
-        $directError = $_.Exception.Message
-        if ($apiError) {
-            throw "API: $apiError | direct: $directError"
+    } else {
+        Write-Output ("UPDATE_METHOD={0}" -f $Info.Method)
+    }
+    Write-Output ("PACKAGE_URL={0}" -f $packageUrl)
+    if (-not $Quiet) {
+        if ($update) {
+            Write-Host ("GitHub: update " + $Info.Version + " (local " + $localVersion + ")") -ForegroundColor Yellow
+        } else {
+            Write-Host ("GitHub: OK " + $localVersion) -ForegroundColor Green
         }
-        throw $directError
     }
 }
 
 $localVersion = Get-LocalVersion
-Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
-
 $config = Get-UpdateConfig
 $packageFile = if ($config.packageFile) { [string]$config.packageFile } else { 'Otmena-update.zip' }
 
 if (-not $config) {
+    Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
     Write-Output 'UPDATE_ERROR=net fajla utils\update-config.json'
     Write-Output 'VERSION_REMOTE='
     Write-Output 'UPDATE_AVAILABLE=0'
@@ -125,6 +221,7 @@ if (-not $config) {
 }
 
 if (-not $config.enabled) {
+    Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
     Write-Output 'UPDATE_ERROR=obnovleniya vyklyucheny v config'
     Write-Output 'VERSION_REMOTE='
     Write-Output 'UPDATE_AVAILABLE=0'
@@ -135,21 +232,10 @@ if ($config.githubRepo) {
     try {
         $token = if ($config.githubToken) { [string]$config.githubToken } else { '' }
         $info = Get-GithubReleaseInfo -Repo ([string]$config.githubRepo) -PackageFile $packageFile -Token $token
-        Write-Output ("VERSION_REMOTE={0}" -f $info.Version)
-        Write-Output 'UPDATE_SOURCE=github'
-        $update = [int]($info.Version -and ($info.Version -ne $localVersion))
-        Write-Output ("UPDATE_AVAILABLE={0}" -f $update)
-        Write-Output ("PACKAGE_URL={0}" -f $info.PackageUrl)
-        Write-Output ("UPDATE_METHOD={0}" -f $info.Method)
-        if (-not $Quiet) {
-            if ($update) {
-                Write-Host ("GitHub: update " + $info.Version + " (local " + $localVersion + ")") -ForegroundColor Yellow
-            } else {
-                Write-Host ("GitHub: OK " + $localVersion) -ForegroundColor Green
-            }
-        }
+        Publish-UpdateInfo -Info $info -PackageFile $packageFile
         exit 0
     } catch {
+        Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
         Write-Output 'VERSION_REMOTE='
         Write-Output 'UPDATE_AVAILABLE=0'
         Write-Output ("UPDATE_ERROR={0}" -f $_.Exception.Message)
@@ -166,6 +252,7 @@ if ($config.baseUrl) {
 
     try {
         $remote = Read-RemoteVersion -baseUrl $baseUrl -VersionFile $versionFile
+        Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
         Write-Output ("VERSION_REMOTE={0}" -f $remote)
         Write-Output 'UPDATE_SOURCE=custom'
         $update = [int]($remote -and ($remote -ne $localVersion))
@@ -179,6 +266,7 @@ if ($config.baseUrl) {
         Write-Output ("PACKAGE_URL={0}" -f $packageUrl)
         exit 0
     } catch {
+        Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
         Write-Output 'VERSION_REMOTE='
         Write-Output 'UPDATE_AVAILABLE=0'
         Write-Output ("UPDATE_ERROR={0}" -f $_.Exception.Message)
@@ -186,6 +274,7 @@ if ($config.baseUrl) {
     }
 }
 
+Write-Output ("VERSION_LOCAL={0}" -f $localVersion)
 Write-Output 'UPDATE_ERROR=ukazhi githubRepo v update-config.json'
 Write-Output 'VERSION_REMOTE='
 Write-Output 'UPDATE_AVAILABLE=0'

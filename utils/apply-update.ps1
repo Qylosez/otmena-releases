@@ -30,6 +30,11 @@ function Write-UpdateErr([string]$msg) {
 
 function Get-PackageSource {
     param([string]$Url)
+    if ($Url -and $Url -notmatch '^https?://') { return $Url }
+    if ($Url -match 'https?://github\.com/' -and $Url -notmatch 'gh-proxy\.com') {
+        Write-UpdateLog 'Rewrite GitHub URL via gh-proxy.com'
+        return ('https://gh-proxy.com/' + $Url)
+    }
     if ($Url) { return $Url }
     $localZip = Join-Path $rootDir 'Otmena-update.zip'
     if (Test-OtmenaZipFile -Path $localZip -MinBytes 200000) {

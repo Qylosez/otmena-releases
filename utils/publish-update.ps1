@@ -63,6 +63,7 @@ $includeDirs = @('app', 'bin', 'lists', 'scripts', 'telegram-vless', 'utils')
 $includeFiles = @(
     'Otmena.exe', 'README.md', 'CURSOR-EUROPE-ON.bat', 'CURSOR-EUROPE-OFF.bat',
     'CURSOR-DESKTOP-SETUP.md', 'UPDATE-MANUAL.bat', 'DOWNLOAD-UPDATE.bat', 'FIX-UPDATE.bat',
+    'OTMENA-UPDATE.bat',
     'CHECK.bat', 'ZAPRET-ADMIN.bat', 'CURSOR-FIX.bat', 'CURSOR-WORK.bat'
 )
 

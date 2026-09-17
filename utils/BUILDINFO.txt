@@ -1,4 +1,5 @@
-Otmena build 1.1.24
-Date: 2026-09-15
-Fix: updater uses gh-proxy/ghfast first, keeps xray up until zip is saved
-Add: FIX-UPDATE.bat / bootstrap-update.ps1 for blocked GitHub
+Otmena build 1.1.25
+Date: 2026-09-17
+Fix: Updates button uses gh-proxy URL and pre-downloads zip during check
+     so 1.1.21 apply-update can install from a local path / mirror
+Add: drop-in check-updates.ps1 — PACKAGE_URL is never raw github.com
