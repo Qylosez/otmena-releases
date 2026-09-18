@@ -210,7 +210,6 @@ function Get-OtmenaPreserveRelativePaths {
         'utils\portable.flag',
         'utils\telegram-mtproto.json',
         'telegram-vless\subscription.json',
-        'telegram-vless\subscription.cache.txt',
         'telegram-vless\bin\xray.exe',
         'telegram-vless\bin\xray-windows-64.zip',
         'telegram-vless\bin\xray-bundle.zip',

@@ -1,5 +1,4 @@
-Otmena build 1.1.25
-Date: 2026-09-17
-Fix: Updates button uses gh-proxy URL and pre-downloads zip during check
-     so 1.1.21 apply-update can install from a local path / mirror
-Add: drop-in check-updates.ps1 — PACKAGE_URL is never raw github.com
+Otmena build 1.1.26
+Date: 2026-09-18
+Fix: vpn.dance Poland servers 31.56.188.10, UUID 924cec67, Reality SNI play.google.com
+Note: old intezio2.vpn.dance / 217.60.25.237 profiles removed

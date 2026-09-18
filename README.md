@@ -65,7 +65,7 @@
 
 5. Для Telegram, если не заработало само — **Добавить MTProto в Telegram** и включи прокси в приложении.
 
-Ключ VLESS берётся из подписки vpn.dance (`telegram-vless\subscription.json`). При **Запустить** Otmena обновляет профили (TCP Reality 8444, gRPC 8443, WS 8447) и поднимает SOCKS `127.0.0.1:10808` / HTTP `10809`.
+Ключ VLESS берётся из подписки vpn.dance (`telegram-vless\subscription.json`). При **Запустить** Otmena обновляет профили (gRPC 8443, TCP Reality 443/8444, WS 8447, SNI `play.google.com`) и поднимает SOCKS `127.0.0.1:10808` / HTTP `10809`.
 
 ---
 

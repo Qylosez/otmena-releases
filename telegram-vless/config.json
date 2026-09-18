@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "217.60.25.237",
+            "address": "31.56.188.10",
             "port": 8443,
             "users": [
               {
-                "id": "39977ae8-fea2-437b-9bea-959ad84c9ccb",
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
                 "encryption": "none"
               }
             ]
@@ -85,44 +85,13 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "intezio2.vpn.dance",
+          "serverName": "play.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "dde66ef1"
+          "shortId": "d7e1a111"
         },
         "grpcSettings": {
           "serviceName": "grpcservice",
-          "multiMode": false
-        }
-      }
-    },
-    {
-      "tag": "proxy-grpc-2",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "intezio2.vpn.dance",
-            "port": 8451,
-            "users": [
-              {
-                "id": "39977ae8-fea2-437b-9bea-959ad84c9ccb",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "grpc",
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "intezio2.vpn.dance",
-          "allowInsecure": false,
-          "fingerprint": "qq"
-        },
-        "grpcSettings": {
-          "serviceName": "grpctls",
           "multiMode": false
         }
       }
@@ -133,11 +102,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "217.60.25.237",
+            "address": "31.56.188.10",
             "port": 443,
             "users": [
               {
-                "id": "39977ae8-fea2-437b-9bea-959ad84c9ccb",
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
                 "encryption": "none"
               }
             ]
@@ -148,10 +117,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "intezio2.vpn.dance",
+          "serverName": "play.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": ""
+          "shortId": "d7e1a2bb"
         }
       }
     },
@@ -161,11 +130,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "217.60.25.237",
+            "address": "31.56.188.10",
             "port": 8444,
             "users": [
               {
-                "id": "39977ae8-fea2-437b-9bea-959ad84c9ccb",
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
                 "encryption": "none"
               }
             ]
@@ -176,37 +145,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "intezio2.vpn.dance",
+          "serverName": "play.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "dde66ef1"
-        }
-      }
-    },
-    {
-      "tag": "proxy-tcp-3",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "intezio2.vpn.dance",
-            "port": 8452,
-            "users": [
-              {
-                "id": "39977ae8-fea2-437b-9bea-959ad84c9ccb",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "intezio2.vpn.dance",
-          "allowInsecure": false,
-          "fingerprint": "qq"
+          "shortId": "6ba85179e30d4fc2"
         }
       }
     },
@@ -216,42 +158,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "intezio2.vpn.dance",
-            "port": 2053,
-            "users": [
-              {
-                "id": "39977ae8-fea2-437b-9bea-959ad84c9ccb",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "ws",
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "intezio2.vpn.dance",
-          "allowInsecure": false,
-          "fingerprint": "qq"
-        },
-        "wsSettings": {
-          "path": "/ws",
-          "host": "intezio2.vpn.dance"
-        }
-      }
-    },
-    {
-      "tag": "proxy-ws-2",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "217.60.25.237",
+            "address": "31.56.188.10",
             "port": 8447,
             "users": [
               {
-                "id": "39977ae8-fea2-437b-9bea-959ad84c9ccb",
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
                 "encryption": "none"
               }
             ]
@@ -262,7 +173,7 @@
         "network": "ws",
         "security": "none",
         "wsSettings": {
-          "path": "/wsp"
+          "path": "/ws"
         }
       }
     },
@@ -282,12 +193,9 @@
         "tag": "auto",
         "selector": [
           "proxy-grpc",
-          "proxy-grpc-2",
           "proxy-tcp",
           "proxy-tcp-2",
-          "proxy-tcp-3",
-          "proxy-ws",
-          "proxy-ws-2"
+          "proxy-ws"
         ],
         "fallbackTag": "proxy-grpc",
         "strategy": {
@@ -310,16 +218,13 @@
   "observatory": {
     "subjectSelector": [
       "proxy-grpc",
-      "proxy-grpc-2",
       "proxy-tcp",
       "proxy-tcp-2",
-      "proxy-tcp-3",
-      "proxy-ws",
-      "proxy-ws-2"
+      "proxy-ws"
     ],
     "probeUrl": "https://api2.cursor.sh",
     "probeInterval": "45s",
     "enableConcurrency": true
   },
-  "remarks": "Otmena | vpn.dance | auto-probe on start"
+  "remarks": "Otmena | vpn.dance | Poland 31.56.188.10 | auto-probe on start"
 }
