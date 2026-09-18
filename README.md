@@ -4,7 +4,7 @@
 
 Один файл `Otmena.exe`, без установки в систему. Запустил — нажал **Запустить** — сервисы сами подбирают рабочий способ подключения.
 
-> Основано на [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) **1.9.8c**, доработано под удобный запуск с рабочих ПК.
+> Основано на [zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) **1.10.1**, доработано под удобный запуск с рабочих ПК. Telegram и Cursor идут через ключ [vpn.dance](https://vpn.dance) (VLESS Reality, Польша).
 
 ---
 
@@ -13,7 +13,7 @@
 | Сервис | Как работает |
 |--------|----------------|
 | **Discord / YouTube** | Обход DPI через `winws.exe` (нужны права администратора) |
-| **Telegram** | Локальный SOCKS через VLESS (xray) или резервный MTProto-прокси |
+| **Telegram** | Локальный SOCKS через VLESS (xray + ключ vpn.dance) или резервный MTProto-прокси |
 | **Авто-переключение** | Если один способ не сработал — пробует следующий |
 | **Автозапуск** | Можно включить при входе в Windows |
 | **Обновления** | Кнопка **Обновления** — скачивает новую версию с GitHub |
@@ -31,13 +31,20 @@
 
 ## Установка
 
-### Из Releases (рекомендуется)
+### Вариант 1 — из Releases (рекомендуется)
 
-1. Открой [Releases](https://github.com/Qylosez/otmena-releases/releases) (или скачай архив из этого репозитория).
-2. Распакуй папку куда удобно, например `C:\Otmena\`.
-3. Запусти **`Otmena.exe`**.
+1. Открой [Releases](https://github.com/Qylosez/otmena-releases/releases).
+2. Скачай **`Otmena-update.zip`** (~3–4 МБ, без xray — так проще залить на GitHub).
+3. Распакуй, например в `C:\Otmena\`.
+4. Запусти **`Otmena.exe`** от администратора.
+5. При первом запуске **xray** для Telegram скачается сам (нужен `xray-windows-64.zip` в Releases или доступ к GitHub).
+6. Быстрый патч на чужой ПК: `utils\deploy-hotfix.ps1 -TargetFolder "D:\путь\к\Otmena"`.
 
 > Не клади папку в `Program Files` — так проще обновлять и удалять.
+
+### Вариант 2 — уже есть папка от коллеги
+
+Скопируй всю папку на свой ПК и запусти `Otmena.exe`. Больше ничего ставить не нужно.
 
 ---
 
@@ -57,6 +64,8 @@
 | **Work mode** | Режим для рабочего ПК | Обычный режим |
 
 5. Для Telegram, если не заработало само — **Добавить MTProto в Telegram** и включи прокси в приложении.
+
+Ключ VLESS берётся из подписки vpn.dance (`telegram-vless\subscription.json`). При **Запустить** Otmena обновляет профили (gRPC 8443, TCP Reality 443/8444, WS 8447, SNI `play.google.com`) и поднимает SOCKS `127.0.0.1:10808` / HTTP `10809`.
 
 ---
 
@@ -128,6 +137,8 @@ Otmena.exe /minimized
 Программа скачает архив, установит и перезапустится.  
 Твои локальные настройки (work mode, Telegram, xray) сохраняются.
 
+Если кнопка пишет **Ошибка установки (код 1)** — это старая версия (1.1.21): она качает zip с github.com, а с рабочего ПК GitHub закрыт. Положи **`OTMENA-UPDATE.bat`** в папку Otmena и запусти. Либо замени `utils\check-updates.ps1` из релиза 1.1.25 и снова нажми **Обновления**.
+
 ---
 
 ## Частые проблемы
@@ -167,24 +178,75 @@ Telegram не принимает ссылки `tg://`. Установи Telegram
 Otmena.exe              ← запускай это
 bin\                    ← движок обхода (winws, WinDivert)
 lists\                  ← списки сайтов
-telegram-vless\         ← настройки и xray для Telegram
+telegram-vless\         ← xray + подписка vpn.dance (Telegram и Cursor)
 utils\                  ← служебные скрипты (не трогать без нужды)
 scripts\                ← внутренние bat-файлы
 ```
 
 ---
 
-## Для maintainer'а (кто собирает и выкладывает версии)
+## Как выложить на GitHub (один репозиторий)
+
+Используется **только** [Qylosez/otmena-releases](https://github.com/Qylosez/otmena-releases):
+- **README** — описание на главной репозитория
+- **Releases** — готовый zip для скачивания и кнопки «Обновления»
+
+Через браузер zip **> 25 МБ** не залить — только через команду ниже.
+
+### Один раз — настройка
+
+1. Создай репозиторий: https://github.com/new → имя **`otmena-releases`** → Public → без README
+2. Установи и войди:
+   ```powershell
+   winget install Git.Git
+   winget install GitHub.cli
+   gh auth login
+   ```
+3. Залей README на GitHub:
+   ```powershell
+   cd C:\Users\пользователь\Desktop\zapret4
+   git init
+   git add README.md
+   git commit -m "README"
+   git branch -M main
+   git remote add origin https://github.com/Qylosez/otmena-releases.git
+   git push -u origin main
+   ```
+
+### Каждый раз — когда обновил программу
 
 ```powershell
-cd app
+cd C:\Users\пользователь\Desktop\zapret4\app
 .\build-app.ps1
 
 cd ..\utils
 .\publish-update.ps1 -GitHubRepo "Qylosez/otmena-releases" -Bump
 ```
 
-Требуется [GitHub CLI](https://cli.github.com): `gh auth login`
+**Один раз** (и при обновлении Xray) — положи в тот же Release файл **`xray-windows-64.zip`** (~35 МБ), чтобы у пользователей xray ставился при первом запуске:
+
+```powershell
+.\publish-xray-asset.ps1 -PublishPath "$env:USERPROFILE\Desktop\otmena-publish"
+```
+
+Загрузи `xray-windows-64.zip` в Release рядом с `Otmena-update.zip` (через Draft release → Attach).
+
+Если менял README:
+```powershell
+cd C:\Users\пользователь\Desktop\zapret4
+git add README.md
+git commit -m "update readme"
+git push
+```
+
+### Что говорить людям
+
+> Скачай **Otmena-update.zip** из [Releases](https://github.com/Qylosez/otmena-releases/releases) → распакуй → **Otmena.exe** от администратора.  
+> Обновления — кнопка **Обновления** в программе.
+
+---
+
+## Для maintainer'а
 
 ---
 
@@ -199,4 +261,4 @@ cd ..\utils
 
 [Qylosez](https://github.com/Qylosez)
 
-Если нашёл баг или есть предложение — создай Issue в репозитории.
+Если нашёл баг — создай Issue в [otmena-releases](https://github.com/Qylosez/otmena-releases/issues).

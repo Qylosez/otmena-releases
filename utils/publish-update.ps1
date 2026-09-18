@@ -38,7 +38,7 @@ $excludeNames = @(
     'launcher.log', 'first_run.done', 'gui.settings', 'work_mode.enabled',
     'xray.pid', 'xray.exe', 'Zapret.new.exe', 'test results'
 )
-$excludePatterns = @('*.log', '*.pid', '*.cache.txt')
+$excludePatterns = @('*.log', '*.pid', '_publish*.ps1', '_test*.ps1')
 
 $version = if ($Version) { $Version } elseif ($Bump) { Bump-Version (Get-CurrentVersion) } else { Get-CurrentVersion }
 Set-Version $version
@@ -60,7 +60,12 @@ if (Test-Path $configFile) {
 New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
 $includeDirs = @('app', 'bin', 'lists', 'scripts', 'telegram-vless', 'utils')
-$includeFiles = @('Otmena.exe', 'README.md')
+$includeFiles = @(
+    'Otmena.exe', 'README.md', 'CURSOR-EUROPE-ON.bat', 'CURSOR-EUROPE-OFF.bat',
+    'CURSOR-DESKTOP-SETUP.md', 'UPDATE-MANUAL.bat', 'DOWNLOAD-UPDATE.bat', 'FIX-UPDATE.bat',
+    'OTMENA-UPDATE.bat',
+    'CHECK.bat', 'ZAPRET-ADMIN.bat', 'CURSOR-FIX.bat', 'CURSOR-WORK.bat'
+)
 
 foreach ($dir in $includeDirs) {
     $src = Join-Path $rootDir $dir
@@ -94,7 +99,9 @@ Set-Content -Path (Join-Path $stageDir 'utils\app.version') -Value $version -Enc
 @(
     "Otmena build $version",
     ("Date: {0}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
-    'Includes: MTProto LiteralPath fix, auto xray install, GitHub updates, UTF8 logs'
+    'Zapret: Flowseal/zapret-discord-youtube 1.10.1',
+    'VLESS: vpn.dance (TCP Reality / gRPC / WS balancer)',
+    'Includes: ALT11 1.10.1 fakes, subscription sync, Cursor HTTP 10809'
 ) | Out-File -FilePath (Join-Path $stageDir 'utils\BUILDINFO.txt') -Encoding ASCII
 
 $skipFlag = Join-Path $stageDir 'utils\skip-xray.flag'

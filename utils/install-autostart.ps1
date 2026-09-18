@@ -14,6 +14,7 @@ function Register-Task([string]$name, [string]$execute, [string]$arguments, [str
 
     $action = New-ScheduledTaskAction -Execute $execute -Argument $arguments -WorkingDirectory $workDir
     $trigger = New-ScheduledTaskTrigger -AtLogOn
+    try { $trigger.Delay = 'PT20S' } catch {}
     if ($highest) {
         $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
     } else {
@@ -40,11 +41,16 @@ try {
         -arguments "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$launcher`" -Action start -Quiet" `
         -workDir $rootDir -highest $true
 
+    $winwsPs = Join-Path $PSScriptRoot 'start-winws.ps1'
+    Register-Task -name 'Otmena-Winws' -execute $ps `
+        -arguments "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$winwsPs`" -Quiet" `
+        -workDir $rootDir -highest $true
+
     Write-Step 'Starting now...'
     & $launcher -Action start
 
     Write-Host ''
-    Write-Host 'Gotovo. Pri vhode v Windows avtomat: DS/YT + Telegram.' -ForegroundColor Green
+    Write-Host 'Gotovo. Pri vhode v Windows avtomat: DS/YT + Telegram + Cursor Europe.' -ForegroundColor Green
     Write-Host 'Esli sposob ne rabotaet - perekljuchaetsya na sledujushchij.' -ForegroundColor Gray
     Write-Host ''
     exit 0

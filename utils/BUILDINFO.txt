@@ -1,3 +1,4 @@
-Otmena build 1.0.8
-Date: 2026-06-01 14:33:30
-Includes: MTProto LiteralPath fix, auto xray install, GitHub updates, UTF8 logs
+Otmena build 1.1.26
+Date: 2026-09-18
+Fix: vpn.dance Poland servers 31.56.188.10, UUID 924cec67, Reality SNI play.google.com
+Note: old intezio2.vpn.dance / 217.60.25.237 profiles removed

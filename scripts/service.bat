@@ -1,5 +1,5 @@
 @echo off
-set "LOCAL_VERSION=1.9.8c"
+set "LOCAL_VERSION=1.10.1"
 set "ZROOT=%~dp0..\"
 set "ZSCR=%~dp0"
 
@@ -742,37 +742,30 @@ if !found_any_conflict!==1 (
 
 :: Discord cache clearing
 set "CHOICE="
-set /p "CHOICE=Do you want to clear the Discord cache? (Y/N) (default: Y)  "
+set /p "CHOICE=Do you want to clear the Discord cache (Stable, PTB, Canary, Development)? (Y/N) (default: Y)  "
 if "!CHOICE!"=="" set "CHOICE=Y"
 if "!CHOICE!"=="y" set "CHOICE=Y"
 
 if /i "!CHOICE!"=="Y" (
-    tasklist /FI "IMAGENAME eq Discord.exe" | findstr /I "Discord.exe" > nul
-    if !errorlevel!==0 (
-        echo Discord is running, closing...
-        taskkill /IM Discord.exe /F > nul
-        if !errorlevel! == 0 (
-            call :PrintGreen "Discord was successfully closed"
-        ) else (
-            call :PrintRed "Unable to close Discord"
-        )
+    set "discordFound=0"
+    if exist "%appdata%\discord\" (
+        set "discordFound=1"
+        call :clear_discord_cache "Discord.exe" "Discord" "%appdata%\discord"
     )
-
-    set "discordCacheDir=%appdata%\discord"
-
-    for %%d in ("Cache" "Code Cache" "GPUCache") do (
-        set "dirPath=!discordCacheDir!\%%~d"
-        if exist "!dirPath!" (
-            rd /s /q "!dirPath!"
-            if !errorlevel!==0 (
-                call :PrintGreen "Successfully deleted !dirPath!"
-            ) else (
-                call :PrintRed "Failed to delete !dirPath!"
-            )
-        ) else (
-            call :PrintRed "!dirPath! does not exist"
-        )
+    if exist "%appdata%\discordptb\" (
+        set "discordFound=1"
+        call :clear_discord_cache "DiscordPTB.exe" "Discord PTB" "%appdata%\discordptb"
     )
+    if exist "%appdata%\discordcanary\" (
+        set "discordFound=1"
+        call :clear_discord_cache "DiscordCanary.exe" "Discord Canary" "%appdata%\discordcanary"
+    )
+    if exist "%appdata%\discorddevelopment\" (
+        set "discordFound=1"
+        call :clear_discord_cache "DiscordDevelopment.exe" "Discord Development" "%appdata%\discorddevelopment"
+    )
+    if !discordFound! equ 0 call :PrintRed "Discord installations were not found"
+    set "discordFound="
 )
 echo:
 
@@ -1142,3 +1135,37 @@ if "%extracted%"=="0" (
     exit
 )
 exit /b 0
+
+:clear_discord_cache
+setlocal EnableDelayedExpansion
+set "discordProcess=%~1"
+set "discordName=%~2"
+set "discordCacheDir=%~3"
+
+tasklist /FI "IMAGENAME eq !discordProcess!" 2>nul | findstr /I /C:"!discordProcess!" >nul
+if !errorlevel! equ 0 (
+    echo !discordName! is running, closing...
+    taskkill /IM "!discordProcess!" /F >nul 2>&1
+    if !errorlevel! equ 0 (
+        call :PrintGreen "!discordName! was successfully closed"
+    ) else (
+        call :PrintRed "Unable to close !discordName!"
+    )
+)
+
+if exist "!discordCacheDir!\" (
+    for %%d in ("Cache" "Code Cache" "GPUCache") do (
+        set "dirPath=!discordCacheDir!\%%~d"
+        if exist "!dirPath!\" (
+            rd /s /q "!dirPath!" >nul 2>&1
+            if exist "!dirPath!\" (
+                call :PrintRed "Failed to delete !dirPath!"
+            ) else (
+                call :PrintGreen "Successfully deleted !dirPath!"
+            )
+        )
+    )
+)
+
+endlocal
+exit /b

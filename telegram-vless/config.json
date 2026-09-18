@@ -2,6 +2,12 @@
   "log": {
     "loglevel": "warning"
   },
+  "dns": {
+    "servers": [
+      "1.1.1.1",
+      "8.8.8.8"
+    ]
+  },
   "inbounds": [
     {
       "tag": "socks-tg",
@@ -14,7 +20,11 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     },
     {
@@ -27,7 +37,11 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     },
     {
@@ -41,22 +55,58 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     }
   ],
   "outbounds": [
     {
-      "tag": "proxy",
+      "tag": "proxy-grpc",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
-            "address": "45.144.48.81",
-            "port": 8444,
+            "address": "31.56.188.10",
+            "port": 8443,
             "users": [
               {
-                "id": "ca14f4fc-edeb-4777-bdb1-3a5468e70dd3",
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "play.google.com",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "d7e1a111"
+        },
+        "grpcSettings": {
+          "serviceName": "grpcservice",
+          "multiMode": false
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "31.56.188.10",
+            "port": 443,
+            "users": [
+              {
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
                 "encryption": "none"
               }
             ]
@@ -67,10 +117,63 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "loom.com",
+          "serverName": "play.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": ""
+          "shortId": "d7e1a2bb"
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "31.56.188.10",
+            "port": 8444,
+            "users": [
+              {
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "play.google.com",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "6ba85179e30d4fc2"
+        }
+      }
+    },
+    {
+      "tag": "proxy-ws",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "31.56.188.10",
+            "port": 8447,
+            "users": [
+              {
+                "id": "924cec67-bb91-411c-9821-a78d14022786",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "none",
+        "wsSettings": {
+          "path": "/ws"
         }
       }
     },
@@ -85,13 +188,43 @@
   ],
   "routing": {
     "domainStrategy": "IPIfNonMatch",
+    "balancers": [
+      {
+        "tag": "auto",
+        "selector": [
+          "proxy-grpc",
+          "proxy-tcp",
+          "proxy-tcp-2",
+          "proxy-ws"
+        ],
+        "fallbackTag": "proxy-grpc",
+        "strategy": {
+          "type": "leastPing"
+        }
+      }
+    ],
     "rules": [
       {
         "type": "field",
-        "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],
-        "outboundTag": "proxy"
+        "inboundTag": [
+          "socks-tg",
+          "http-cursor",
+          "socks-cursor"
+        ],
+        "balancerTag": "auto"
       }
     ]
   },
-  "remarks": "Otmena | Poland (Warsaw) Reality | TG SOCKS 10808 + Cursor/AI HTTP 10809 / SOCKS 10810"
+  "observatory": {
+    "subjectSelector": [
+      "proxy-grpc",
+      "proxy-tcp",
+      "proxy-tcp-2",
+      "proxy-ws"
+    ],
+    "probeUrl": "https://api2.cursor.sh",
+    "probeInterval": "45s",
+    "enableConcurrency": true
+  },
+  "remarks": "Otmena | vpn.dance | Poland 31.56.188.10 | auto-probe on start"
 }

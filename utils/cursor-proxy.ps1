@@ -1,69 +1,110 @@
 #Requires -Version 3.0
-# Point Cursor desktop at the local encrypted tunnel (xray HTTP inbound -> Poland Reality).
-# This makes Cursor (UI + all models) go out through Europe, encrypted, instead of
-# straight through MTS where TSPU/RKN can throttle or block AI backends.
-#
-#   .\cursor-proxy.ps1            # enable  (http://127.0.0.1:10809)
-#   .\cursor-proxy.ps1 -Disable   # remove the proxy from Cursor settings
-#
-# Cursor stores user settings at %APPDATA%\Cursor\User\settings.json (JSONC).
+# Point Cursor desktop at the local encrypted tunnel (xray -> vpn.dance).
 param(
-    [int]$Port = 10809,
+    [ValidateSet('socks', 'http')]
+    [string]$Mode = 'socks',
+    [int]$Port = 0,
+    [string]$Label = 'manual',
     [switch]$Disable,
     [switch]$Quiet
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
 
+. (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
+
 function Write-Note($msg, $color = 'Gray') {
     if (-not $Quiet) { Write-Host $msg -ForegroundColor $color }
 }
 
-$proxyUrl = "http://127.0.0.1:$Port"
-$settingsPath = Join-Path $env:APPDATA 'Cursor\User\settings.json'
-$settingsDir = Split-Path $settingsPath -Parent
-
-if (-not (Test-Path $settingsDir)) {
-    Write-Note "Cursor ne ustanovlen (net $settingsDir) - propuskayu." Yellow
-    exit 0
+function Set-JsonMapFile([string]$path, [scriptblock]$edit, [switch]$Create) {
+    $dir = Split-Path $path -Parent
+    if (-not (Test-Path $dir)) {
+        if (-not $Create) { return $false }
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $map = [ordered]@{}
+    if (Test-Path $path) {
+        $raw = Get-Content $path -Raw -ErrorAction SilentlyContinue
+        $obj = ConvertFrom-Jsonc $raw
+        if ($obj) {
+            foreach ($p in $obj.PSObject.Properties) { $map[$p.Name] = $p.Value }
+        } elseif ($raw -and $raw.Trim()) {
+            return $false
+        }
+        $backup = "$path.otmena.bak"
+        if (-not (Test-Path $backup)) {
+            Copy-Item $path $backup -Force -ErrorAction SilentlyContinue
+        }
+    } elseif (-not $Create) {
+        return $false
+    }
+    & $edit $map | Out-Null
+    $json = $map | ConvertTo-Json -Depth 20
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($path, $json, $utf8)
+    return $true
 }
 
-# Load existing settings (strip // and /* */ comments so JSONC parses).
-$settings = $null
-if (Test-Path $settingsPath) {
-    $raw = Get-Content $settingsPath -Raw -ErrorAction SilentlyContinue
-    if ($raw -and $raw.Trim()) {
-        $noBlock = [System.Text.RegularExpressions.Regex]::Replace($raw, '/\*.*?\*/', '', 'Singleline')
-        $noLine = [System.Text.RegularExpressions.Regex]::Replace($noBlock, '(^|\s)//.*$', '$1', 'Multiline')
-        try { $settings = $noLine | ConvertFrom-Json -ErrorAction Stop } catch { $settings = $null }
-    }
-    # One-time backup before we rewrite the file.
-    $backup = "$settingsPath.otmena.bak"
-    if (-not (Test-Path $backup)) {
-        Copy-Item $settingsPath $backup -Force -ErrorAction SilentlyContinue
-    }
+if (-not $Port) {
+    $Port = if ($Mode -eq 'socks') { 10808 } else { 10809 }
 }
 
-# Normalise into an ordered hashtable we can edit predictably.
-$map = [ordered]@{}
-if ($settings) {
-    foreach ($p in $settings.PSObject.Properties) { $map[$p.Name] = $p.Value }
+$proxyUrl = if ($Mode -eq 'socks') {
+    "socks5://127.0.0.1:$Port"
+} else {
+    "http://127.0.0.1:$Port"
+}
+
+$settingsPaths = @(
+    (Join-Path $env:APPDATA 'Cursor\User\settings.json'),
+    (Join-Path $env:APPDATA 'Cursor Nightly\User\settings.json')
+)
+
+$wrote = $false
+foreach ($settingsPath in $settingsPaths) {
+    $ok = Set-JsonMapFile $settingsPath -Create:($settingsPath -like '*\Cursor\User\settings.json') -edit {
+        param($map)
+        if ($Disable) {
+            foreach ($k in @('http.proxy', 'http.proxySupport', 'http.noProxy', 'http.proxyStrictSSL', 'http.electronFetch', 'cursor.general.disableHttp2')) {
+                if ($map.Contains($k)) { $map.Remove($k) }
+            }
+        } else {
+            $map['http.proxy'] = $proxyUrl
+            $map['http.proxySupport'] = 'override'
+            $map['http.noProxy'] = 'localhost,127.0.0.1,::1'
+            $map['http.proxyStrictSSL'] = $false
+            $map['http.electronFetch'] = $true
+            $map['cursor.general.disableHttp2'] = $true
+        }
+    }
+    if ($ok) { $wrote = $true }
+}
+
+$argvPath = Join-Path $env:USERPROFILE '.cursor\argv.json'
+if ($Disable) {
+    Set-JsonMapFile $argvPath -edit {
+        param($map)
+        foreach ($k in @('proxy-server', 'disable-http2')) {
+            if ($map.Contains($k)) { $map.Remove($k) }
+        }
+    } | Out-Null
+} elseif ($wrote) {
+    Set-JsonMapFile $argvPath -Create -edit {
+        param($map)
+        $map['proxy-server'] = $proxyUrl
+        $map['disable-http2'] = $true
+    } | Out-Null
 }
 
 if ($Disable) {
-    foreach ($k in @('http.proxy', 'http.proxySupport')) {
-        if ($map.Contains($k)) { $map.Remove($k) }
-    }
     Write-Note 'Cursor proxy otklyuchyon (pryamoe soedinenie).' Yellow
+    Set-CursorProxyState -enabledByOtmena:$false -Mode 'none'
+} elseif ($wrote) {
+    Write-Note "Cursor -> $proxyUrl ($Label). POLNOSTYU zakroj i otkroj Cursor." Green
+    Set-CursorProxyState -enabledByOtmena:$true -Mode $Mode -Port $Port -Label $Label -MarkOk
 } else {
-    $map['http.proxy'] = $proxyUrl
-    $map['http.proxySupport'] = 'on'
-    Write-Note "Cursor -> $proxyUrl (shifrovannyj tunnel, vyhod Polsha)." Green
+    Write-Note 'Cursor settings.json ne najden - zapusti Cursor odin raz, potom Otmena snova.' Yellow
+    exit 1
 }
-
-$json = $map | ConvertTo-Json -Depth 20
-$utf8 = New-Object System.Text.UTF8Encoding $false
-[System.IO.File]::WriteAllText($settingsPath, $json, $utf8)
-
-Write-Note 'Perezapusti Cursor, chtoby proksi primenilsya.' Cyan
 exit 0
