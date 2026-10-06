@@ -37,16 +37,22 @@ function Test-ServiceAvailable {
 
 function Start-ZapretAlt11([string]$rootDir) {
     if (Test-WinwsRunning) { return $true }
+    if (-not (Get-Command Install-WinDivertRuntime -ErrorAction SilentlyContinue)) {
+        . (Join-Path $PSScriptRoot 'otmena-common.ps1')
+    }
     $winws = Join-Path $rootDir 'bin\winws.exe'
     $argsFile = Join-Path $PSScriptRoot 'alt11-service-args.txt'
     if (-not (Test-Path $winws) -or -not (Test-Path $argsFile)) { return $false }
     $raw = (Get-Content -LiteralPath $argsFile -Raw -ErrorAction SilentlyContinue)
     if (-not $raw) { return $false }
-    try { Unblock-File -LiteralPath $winws -ErrorAction SilentlyContinue } catch {}
+    Reset-WinDivertService
+    $staged = Install-WinDivertRuntime -RootDir $rootDir
+    $exeToRun = if ($staged) { $staged } else { $winws }
+    try { Unblock-File -LiteralPath $exeToRun -ErrorAction SilentlyContinue } catch {}
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $winws
+    $psi.FileName = $exeToRun
     $psi.Arguments = $raw.Trim()
-    $psi.WorkingDirectory = Join-Path $rootDir 'bin'
+    $psi.WorkingDirectory = (Split-Path -Parent $exeToRun)
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.WindowStyle = 'Hidden'

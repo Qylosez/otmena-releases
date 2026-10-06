@@ -239,10 +239,29 @@ function Get-ZapretSteps {
             }
             $raw = $raw.Trim().Trim('"').Trim()
             if (Test-IsAdmin) {
-                Start-OtmenaNativeProcess -FilePath $winws -Arguments $raw -WorkingDirectory (Join-Path $rootDir 'bin') | Out-Null
+                Reset-WinDivertService
+                $staged = Install-WinDivertRuntime -RootDir $rootDir
+                $exeToRun = if ($staged) { $staged } else { $winws }
+                $wd = Split-Path -Parent $exeToRun
+                $proc = Start-OtmenaNativeProcess -FilePath $exeToRun -Arguments $raw -WorkingDirectory $wd
                 Start-Sleep -Seconds 3
                 if (Test-WinwsRunning) {
-                    return @{ Success = $true; Detail = 'winws.exe napryamuyu' }
+                    $where = if ($staged) { 'WinDivert 2.2.2 iz C:\ProgramData\Otmena\bin' } else { 'winws.exe napryamuyu' }
+                    return @{ Success = $true; Detail = $where }
+                }
+                $code = ''
+                if ($proc -and $proc.HasExited) { $code = [string]$proc.ExitCode }
+                if ($code -eq '1275') {
+                    return @{ Success = $false; Detail = 'WinDivert zablokirovan politikoj (kod 1275). Antivirus ili Secure Boot.' }
+                }
+                if ($code -eq '577') {
+                    return @{ Success = $false; Detail = 'WinDivert: podpis drajvera otklonen (kod 577).' }
+                }
+                if ($code -eq '5') {
+                    return @{ Success = $false; Detail = 'WinDivert: net prav (kod 5), hotya process ot administratora.' }
+                }
+                if ($code) {
+                    return @{ Success = $false; Detail = ("WinDivert ne podnyalsya, kod " + $code) }
                 }
             }
             if (Start-WinwsViaTask) {

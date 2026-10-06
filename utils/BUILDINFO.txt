@@ -1,5 +1,5 @@
-Otmena build 1.1.31
+Otmena build 1.1.32
 Date: 2026-10-06
 Zapret: Flowseal/zapret-discord-youtube 1.10.1
-VLESS: vpn.dance Lithuania 84.32.109.157 (TCP Reality / gRPC / WS balancer)
-Includes: MAX messenger direct, RU sites direct, self-installing updates
+WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
+VLESS: vpn.dance Lithuania 84.32.109.157

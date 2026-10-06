@@ -372,6 +372,42 @@ function Ensure-WlanApiDll([string]$RootDir) {
     return (Test-Path -LiteralPath $dest)
 }
 
+function Install-WinDivertRuntime {
+    param([Parameter(Mandatory)][string]$RootDir)
+    # WinDivert 2.2.2-A is the latest signed driver. It fails to load when
+    # winws.exe sits in OneDrive or a non-ASCII folder: the kernel service
+    # cannot open WinDivert64.sys there. Stage the matched DLL+SYS+exe locally.
+    $srcBin = Join-Path $RootDir 'bin'
+    $dest = Join-Path $env:ProgramData 'Otmena\bin'
+    if (-not (Test-Path -LiteralPath $dest)) {
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    }
+    foreach ($name in @('winws.exe', 'WinDivert.dll', 'WinDivert64.sys', 'cygwin1.dll')) {
+        $from = Join-Path $srcBin $name
+        if (-not (Test-Path -LiteralPath $from)) { continue }
+        $to = Join-Path $dest $name
+        Copy-Item -LiteralPath $from -Destination $to -Force
+        Unblock-OtmenaFile $to
+    }
+    $sys = Join-Path $dest 'WinDivert64.sys'
+    $exe = Join-Path $dest 'winws.exe'
+    $dll = Join-Path $dest 'WinDivert.dll'
+    if (-not (Test-Path -LiteralPath $sys) -or -not (Test-Path -LiteralPath $exe) -or -not (Test-Path -LiteralPath $dll)) {
+        return $null
+    }
+    if ((Get-Item -LiteralPath $sys).Length -lt 90000) { return $null }
+    if ((Get-Item -LiteralPath $dll).Length -lt 40000) { return $null }
+    return $exe
+}
+
+function Reset-WinDivertService {
+    if (Get-Process -Name winws -ErrorAction SilentlyContinue) { return }
+    foreach ($svc in @('WinDivert', 'WinDivert14')) {
+        & sc.exe stop $svc 2>$null | Out-Null
+        & sc.exe delete $svc 2>$null | Out-Null
+    }
+}
+
 function Ensure-OtmenaNativeDeps([string]$RootDir) {
     Unblock-OtmenaBinaries $RootDir
     $wlan = Ensure-WlanApiDll $RootDir

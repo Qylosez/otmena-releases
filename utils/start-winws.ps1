@@ -23,7 +23,11 @@ $raw = (Get-Content -LiteralPath $argsFile -Raw -ErrorAction SilentlyContinue)
 if (-not $raw) { exit 1 }
 $raw = $raw.Trim().Trim('"').Trim()
 
-Start-OtmenaNativeProcess -FilePath $winws -Arguments $raw -WorkingDirectory (Join-Path $rootDir 'bin') | Out-Null
+Reset-WinDivertService
+$staged = Install-WinDivertRuntime -RootDir $rootDir
+$exeToRun = if ($staged) { $staged } else { $winws }
+$wd = Split-Path -Parent $exeToRun
+Start-OtmenaNativeProcess -FilePath $exeToRun -Arguments $raw -WorkingDirectory $wd | Out-Null
 Start-Sleep -Seconds 3
 if (Test-WinwsRunning) { exit 0 }
 
