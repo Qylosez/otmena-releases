@@ -81,16 +81,53 @@ function Save-Package([string]$source, [string]$zipPath) {
 }
 
 function Expand-Zip([string]$zipPath, [string]$dest) {
-    if (Test-Path $dest) { Remove-Item $dest -Recurse -Force -ErrorAction SilentlyContinue }
-    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+    # Windows PowerShell 5.1 archive cmdlet writes root files, then throws
+    # on nested "/" entries and leaves a partial folder. A second extract
+    # then dies with "file already exists" (exit 1, no useful log).
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = 'Stop'
     try {
-        Expand-Archive -Path $zipPath -DestinationPath $dest -Force
-        return
-    } catch {
-        Write-UpdateLog "Expand-Archive fail: $($_.Exception.Message), try .NET..."
+        if (Test-Path $dest) { Remove-Item $dest -Recurse -Force }
+        New-Item -ItemType Directory -Path $dest -Force | Out-Null
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        $archive = $null
+        for ($i = 0; $i -lt 6; $i++) {
+            try {
+                $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)
+                break
+            } catch {
+                if ($i -eq 5) { throw }
+                Start-Sleep -Seconds 1
+            }
+        }
+        try {
+            foreach ($entry in $archive.Entries) {
+                $rel = ([string]$entry.FullName).Replace('/', '\').TrimStart('\')
+                if ([string]::IsNullOrWhiteSpace($rel)) { continue }
+                $isDir = $rel.EndsWith('\') -or [string]::IsNullOrEmpty($entry.Name)
+                $target = Join-Path $dest $rel.TrimEnd('\')
+                if ($isDir) {
+                    if (-not (Test-Path -LiteralPath $target)) {
+                        New-Item -ItemType Directory -Path $target -Force | Out-Null
+                    }
+                    continue
+                }
+                $parent = Split-Path -Path $target -Parent
+                if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+                    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+                }
+                $out = [IO.File]::Create($target)
+                try {
+                $inStream = $entry.Open()
+                try { $inStream.CopyTo($out) } finally { $inStream.Dispose() }
+                } finally { $out.Dispose() }
+            }
+        } finally {
+            if ($archive) { $archive.Dispose() }
+        }
+    } finally {
+        $ErrorActionPreference = $prev
     }
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $dest)
 }
 
 function Copy-TreeSafe([string]$src, [string]$dst) {

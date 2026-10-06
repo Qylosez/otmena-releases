@@ -2,6 +2,15 @@
 # Regenerates utils\alt11-service-args.txt from general (ALT11).bat with correct absolute paths.
 $ErrorActionPreference = 'Stop'
 
+# One-shot after a zip update: the old installer calls this script once files
+# are copied. Delete leftovers from the original Otmena, then continue.
+try {
+    $pendingClean = Join-Path $PSScriptRoot 'update-clean.pending'
+    if (Test-Path -LiteralPath $pendingClean) {
+        & (Join-Path $PSScriptRoot 'finish-update.ps1')
+    }
+} catch {}
+
 $rootDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $alt11Bat = Join-Path $rootDir 'scripts\general (ALT11).bat'
 $outFile = Join-Path $PSScriptRoot 'alt11-service-args.txt'

@@ -1060,7 +1060,7 @@ goto menu
 :setup_autostart
 chcp 65001 > nul
 cls
-call "%ZSCR%УСТАНОВИТЬ-АВТОЗАПУСК.bat"
+call "%ZSCR%INSTALL-AUTOSTART.bat"
 goto menu
 
 :setup_cursor_exclude

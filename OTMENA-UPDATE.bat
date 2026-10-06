@@ -11,7 +11,7 @@ echo.
 if exist "%~dp0utils\bootstrap-update.ps1" (
     powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0utils\bootstrap-update.ps1"
 ) else (
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((New-Object Net.WebClient).DownloadString('https://cdn.jsdelivr.net/gh/Qylosez/otmena-releases@v1.1.25/utils/bootstrap-update.ps1'))"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "iex ((New-Object Net.WebClient).DownloadString('https://cdn.jsdelivr.net/gh/Qylosez/otmena-releases@v1.1.30/utils/bootstrap-update.ps1'))"
 )
 echo.
 pause

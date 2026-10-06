@@ -108,6 +108,141 @@ function Resolve-OtmenaRoot {
     throw 'Ne nashla papku Otmena. Zapusti Otmena.exe i povtori.'
 }
 
+function Expand-BootZip([string]$ZipPath, [string]$Dest) {
+    if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force -ErrorAction SilentlyContinue }
+    New-Item -ItemType Directory -Path $Dest -Force | Out-Null
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = $null
+    for ($i = 0; $i -lt 6; $i++) {
+        try {
+            $archive = [IO.Compression.ZipFile]::OpenRead($ZipPath)
+            break
+        } catch {
+            if ($i -eq 5) { throw }
+            Start-Sleep -Seconds 1
+        }
+    }
+    try {
+        foreach ($entry in $archive.Entries) {
+            $rel = ([string]$entry.FullName).Replace('/', '\').TrimStart('\')
+            if ([string]::IsNullOrWhiteSpace($rel)) { continue }
+            $isDir = $rel.EndsWith('\') -or [string]::IsNullOrEmpty($entry.Name)
+            $target = Join-Path $Dest $rel.TrimEnd('\')
+            if ($isDir) {
+                if (-not (Test-Path -LiteralPath $target)) {
+                    New-Item -ItemType Directory -Path $target -Force | Out-Null
+                }
+                continue
+            }
+            $parent = Split-Path -Path $target -Parent
+            if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+                New-Item -ItemType Directory -Path $parent -Force | Out-Null
+            }
+            $outStream = [IO.File]::Create($target)
+            try {
+                $inStream = $entry.Open()
+                try { $inStream.CopyTo($outStream) } finally { $inStream.Dispose() }
+            } finally { $outStream.Dispose() }
+        }
+    } finally {
+        if ($archive) { $archive.Dispose() }
+    }
+}
+
+function Copy-BootTree([string]$Src, [string]$Dst) {
+    Get-ChildItem -LiteralPath $Src -Force | ForEach-Object {
+        $target = Join-Path $Dst $_.Name
+        if ($_.PSIsContainer) {
+            if (-not (Test-Path -LiteralPath $target)) {
+                New-Item -ItemType Directory -Path $target -Force | Out-Null
+            }
+            Copy-BootTree $_.FullName $target
+        } else {
+            for ($t = 0; $t -lt 8; $t++) {
+                try {
+                    Copy-Item -LiteralPath $_.FullName -Destination $target -Force -ErrorAction Stop
+                    break
+                } catch {
+                    if ($t -eq 7) { throw }
+                    Start-Sleep -Milliseconds 400
+                }
+            }
+        }
+    }
+}
+
+function Install-BootPayload([string]$ZipPath, [string]$Root, [bool]$FromGui) {
+    $tempRoot = Join-Path $env:TEMP ("otmena-update-" + [guid]::NewGuid().ToString())
+    $extract = Join-Path $tempRoot 'extract'
+    New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+    Write-BootLog 'Unpack zip...'
+    Expand-BootZip -ZipPath $ZipPath -Dest $extract
+
+    $payload = $extract
+    $rootFiles = @(Get-ChildItem -LiteralPath $extract -File -Force -ErrorAction SilentlyContinue)
+    $nested = Get-ChildItem -LiteralPath $extract -Directory -Force -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($rootFiles.Count -eq 0 -and $nested) { $payload = $nested.FullName }
+
+    $exeInZip = Get-ChildItem -LiteralPath $payload -Filter 'Otmena.exe' -File -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $exeInZip) { throw 'V arhive net Otmena.exe. Zip povrezhden.' }
+
+    if ($FromGui) {
+        Write-BootLog 'Otmena otkryta — stavlyu posle zakrytiya okna...'
+        $helper = Join-Path $tempRoot 'apply-helper.ps1'
+        $qRoot = $Root.Replace("'", "''")
+        $qPayload = $payload.Replace("'", "''")
+        $qTemp = $tempRoot.Replace("'", "''")
+        $qExe = (Join-Path $Root 'Otmena.exe').Replace("'", "''")
+        @"
+`$ErrorActionPreference = 'SilentlyContinue'
+Start-Sleep -Seconds 2
+Get-Process -Name Otmena,Zapret,winws -ErrorAction SilentlyContinue | Stop-Process -Force
+Start-Sleep -Seconds 1
+function Copy-Tree([string]`$src, [string]`$dst) {
+    Get-ChildItem -LiteralPath `$src -Force | ForEach-Object {
+        `$target = Join-Path `$dst `$_.Name
+        if (`$_.PSIsContainer) {
+            if (-not (Test-Path -LiteralPath `$target)) { New-Item -ItemType Directory -Path `$target -Force | Out-Null }
+            Copy-Tree `$_.FullName `$target
+        } else {
+            for (`$t = 0; `$t -lt 8; `$t++) {
+                try { Copy-Item -LiteralPath `$_.FullName -Destination `$target -Force -ErrorAction Stop; break }
+                catch { Start-Sleep -Milliseconds 400 }
+            }
+        }
+    }
+}
+Copy-Tree '$qPayload' '$qRoot'
+`$oldExe = Join-Path '$qRoot' 'Zapret.exe'
+if (Test-Path -LiteralPath `$oldExe) { Remove-Item -LiteralPath `$oldExe -Force -ErrorAction SilentlyContinue }
+`$finish = Join-Path '$qRoot' 'utils\finish-update.ps1'
+if (Test-Path -LiteralPath `$finish) { & `$finish }
+`$sync = Join-Path '$qRoot' 'utils\sync-service-args.ps1'
+if (Test-Path -LiteralPath `$sync) { try { & `$sync } catch {} }
+if (Test-Path -LiteralPath '$qExe') { Start-Process -FilePath '$qExe' }
+Start-Sleep -Seconds 1
+Remove-Item -LiteralPath '$qTemp' -Recurse -Force -ErrorAction SilentlyContinue
+"@ | Out-File -FilePath $helper -Encoding UTF8
+        $argLine = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $helper + '"'
+        Start-Process -FilePath 'powershell.exe' -ArgumentList $argLine -WindowStyle Hidden -ErrorAction Stop | Out-Null
+        Write-Output 'STATUS=scheduled'
+        return
+    }
+
+    Write-BootLog 'Apply in-place...'
+    Get-Process -Name Otmena, Zapret, winws -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+    Copy-BootTree -Src $payload -Dst $Root
+    $oldExe = Join-Path $Root 'Zapret.exe'
+    if (Test-Path -LiteralPath $oldExe) { Remove-Item -LiteralPath $oldExe -Force -ErrorAction SilentlyContinue }
+    $finish = Join-Path $Root 'utils\finish-update.ps1'
+    if (Test-Path -LiteralPath $finish) { & $finish }
+    $exe = Join-Path $Root 'Otmena.exe'
+    if (Test-Path -LiteralPath $exe) { Start-Process -FilePath $exe }
+    Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Output 'STATUS=ok'
+}
+
 try {
     Write-BootLog '=== bootstrap update ==='
     $root = Resolve-OtmenaRoot
@@ -119,29 +254,7 @@ try {
     }
     Write-BootLog ("Zip OK, {0} bytes" -f (Get-Item $zip).Length)
 
-    $apply = Join-Path $root 'utils\apply-update.ps1'
-    if (-not (Test-Path $apply)) { throw "Net $apply" }
-
-    if ($FromGui) {
-        Write-BootLog 'Apply from local zip...'
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $apply -Quiet
-        $code = $LASTEXITCODE
-        if ($code -eq 0) {
-            Write-Output 'STATUS=scheduled'
-            Write-BootLog '=== bootstrap ok ==='
-            exit 0
-        }
-        throw "apply-update exit $code"
-    }
-
-    Get-Process -Name Otmena, Zapret -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
-    Write-BootLog 'Apply in-place...'
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $apply -InPlace -Quiet
-    if ($LASTEXITCODE -ne 0) { throw "apply-update exit $LASTEXITCODE" }
-    $exe = Join-Path $root 'Otmena.exe'
-    if (Test-Path $exe) { Start-Process -FilePath $exe }
-    Write-Output 'STATUS=ok'
+    Install-BootPayload -ZipPath $zip -Root $root -FromGui:([bool]$FromGui)
     Write-BootLog '=== bootstrap ok ==='
     exit 0
 } catch {
