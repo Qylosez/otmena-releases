@@ -2,6 +2,7 @@
 # WinINet system proxy — Cursor/Electron on VM often ignores settings.json alone.
 
 $ErrorActionPreference = 'SilentlyContinue'
+. (Join-Path $PSScriptRoot 'otmena-common.ps1')
 
 $script:CursorRegPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 
@@ -20,7 +21,9 @@ public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntP
 function Enable-CursorSystemProxy {
     param([int]$Port = 10809)
     Set-ItemProperty -Path $script:CursorRegPath -Name ProxyServer -Value "127.0.0.1:$Port" -Type String -Force
-    Set-ItemProperty -Path $script:CursorRegPath -Name ProxyOverride -Value '<local>;localhost;127.*;10.*;172.16.*;192.168.*' -Type String -Force
+    $bypass = Get-OtmenaProxyOverride
+    if (-not $bypass) { $bypass = '<local>;localhost;127.*;10.*;172.16.*;192.168.*' }
+    Set-ItemProperty -Path $script:CursorRegPath -Name ProxyOverride -Value $bypass -Type String -Force
     Set-ItemProperty -Path $script:CursorRegPath -Name ProxyEnable -Value 1 -Type DWord -Force
     Remove-ItemProperty -Path $script:CursorRegPath -Name AutoConfigURL -ErrorAction SilentlyContinue
     Update-WinInetRefresh

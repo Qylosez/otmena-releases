@@ -201,6 +201,32 @@ function Get-OtmenaPackageUrl {
     return $null
 }
 
+function Get-OtmenaDirectDomainList {
+    $f = Join-Path (Split-Path $PSScriptRoot -Parent) 'lists\list-direct-ru.txt'
+    $list = New-Object System.Collections.Generic.List[string]
+    if (Test-OtmenaPath $f) {
+        Get-Content -LiteralPath $f -ErrorAction SilentlyContinue | ForEach-Object {
+            $d = ([string]$_).Trim()
+            if (-not $d -or $d.StartsWith('#')) { return }
+            [void]$list.Add($d)
+        }
+    }
+    return $list.ToArray()
+}
+
+function Get-OtmenaProxyOverride {
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($x in @('<local>', 'localhost', '127.*', '10.*', '172.16.*', '192.168.*')) {
+        [void]$parts.Add($x)
+    }
+    foreach ($d in (Get-OtmenaDirectDomainList)) {
+        [void]$parts.Add($d)
+        if ($d -notlike '*.*') { continue }
+        if (-not $d.StartsWith('*.')) { [void]$parts.Add('*.' + $d) }
+    }
+    return ($parts.ToArray() -join ';')
+}
+
 function Get-OtmenaPreserveRelativePaths {
     return @(
         'utils\work_mode.enabled',

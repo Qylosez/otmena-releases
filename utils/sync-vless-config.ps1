@@ -213,6 +213,22 @@ function Get-PreferOrder {
     return $order
 }
 
+function Get-DirectDomainJson {
+    $f = Join-Path $rootDir 'lists\list-direct-ru.txt'
+    $items = New-Object System.Collections.Generic.List[string]
+    if (Test-Path $f) {
+        Get-Content -LiteralPath $f -ErrorAction SilentlyContinue | ForEach-Object {
+            $d = ([string]$_).Trim()
+            if (-not $d -or $d.StartsWith('#')) { return }
+            if ($d -match '^[a-z0-9.-]+$') {
+                [void]$items.Add((Get-JsonString ('domain:' + $d)))
+            }
+        }
+    }
+    if ($items.Count -eq 0) { return '' }
+    return ($items.ToArray() -join ', ')
+}
+
 function Get-ProbeUrl {
     $url = 'https://www.gstatic.com/generate_204'
     if (Test-Path $subFile) {
@@ -290,6 +306,17 @@ $outboundsJoined = ($outboundJson -join ",`n")
 $probe = Get-JsonString (Get-ProbeUrl)
 $useBalancer = ($selectorTags.Count -gt 1)
 $remarks = 'Otmena | vpn.dance | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810'
+$directJson = Get-DirectDomainJson
+$directRule = ''
+if ($directJson) {
+    $directRule = @"
+      {
+        "type": "field",
+        "domain": [$directJson],
+        "outboundTag": "direct"
+      },
+"@
+}
 
 if ($useBalancer) {
     $routingInner = @"
@@ -305,6 +332,7 @@ if ($useBalancer) {
       }
     ],
     "rules": [
+$directRule
       {
         "type": "field",
         "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],
@@ -324,6 +352,7 @@ if ($useBalancer) {
     $routingInner = @"
     "domainStrategy": "IPIfNonMatch",
     "rules": [
+$directRule
       {
         "type": "field",
         "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],

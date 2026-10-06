@@ -72,7 +72,7 @@ foreach ($settingsPath in $settingsPaths) {
         } else {
             $map['http.proxy'] = $proxyUrl
             $map['http.proxySupport'] = 'override'
-            $map['http.noProxy'] = 'localhost,127.0.0.1,::1'
+            $map['http.noProxy'] = 'localhost,127.0.0.1,::1,*.gov.ru,*.gosuslugi.ru,*.yandex.ru,*.yandex.net,ya.ru,telemost.yandex.ru,*.mos.ru,*.nalog.ru'
             $map['http.proxyStrictSSL'] = $false
             $map['http.electronFetch'] = $true
             $map['cursor.general.disableHttp2'] = $true

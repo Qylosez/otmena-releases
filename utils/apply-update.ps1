@@ -168,6 +168,11 @@ try {
     if ($InPlace -or -not $exeInZip) {
         Write-UpdateLog 'In-place copy...'
         Copy-TreeSafe $payload $rootDir
+        $clean = Join-Path $PSScriptRoot 'clean-stale-install.ps1'
+        if (Test-Path $clean) {
+            Write-UpdateLog 'Remove leftover files from old Otmena...'
+            & $clean -PayloadDir $payload -RootDir $rootDir | ForEach-Object { Write-UpdateLog $_ }
+        }
         Restore-PreserveFiles -backupDir $backupDir
         & (Join-Path $PSScriptRoot 'sync-service-args.ps1') 2>$null | Out-Null
         $verSrc = Join-Path $payload 'utils\app.version'
@@ -209,6 +214,10 @@ function Copy-Tree([string]`$src, [string]`$dst) {
 Copy-Tree '$escapedPayload' '$escapedRoot'
 `$oldExe = Join-Path '$escapedRoot' 'Zapret.exe'
 if (Test-Path `$oldExe) { Remove-Item `$oldExe -Force -ErrorAction SilentlyContinue }
+`$clean = Join-Path '$escapedRoot' 'utils\clean-stale-install.ps1'
+if (Test-Path `$clean) {
+    & `$clean -PayloadDir '$escapedPayload' -RootDir '$escapedRoot' | Out-Null
+}
 
 if (Test-Path '$escapedBackup') {
     Get-ChildItem -Path '$escapedBackup' -Recurse -File | ForEach-Object {
