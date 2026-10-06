@@ -52,3 +52,13 @@ mail.ru
 vk.com
 vk.ru
 ok.ru
+max.ru
+web.max.ru
+st.max.ru
+download.max.ru
+oneme.ru
+i.oneme.ru
+ws-api.oneme.ru
+api.oneme.ru
+apptracer.ru
+sdk-api.apptracer.ru
