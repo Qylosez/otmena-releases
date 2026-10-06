@@ -1,0 +1,10 @@
+{
+  "url": "https://key.vpn.dance/connect?key=a99adf937ffa7b9957ee",
+  "prefer": [
+    "grpc",
+    "tcp",
+    "ws"
+  ],
+  "probeUrl": "https://api2.cursor.sh",
+  "notes": "vpn.dance VLESS Lithuania 84.32.109.157 (Reality SNI yandex.ru). SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
+}

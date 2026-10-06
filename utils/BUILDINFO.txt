@@ -1,3 +1,5 @@
-Otmena build 1.0.8
-Date: 2026-06-01 14:33:30
-Includes: MTProto LiteralPath fix, auto xray install, GitHub updates, UTF8 logs
+Otmena build 1.1.32
+Date: 2026-10-06
+Zapret: Flowseal/zapret-discord-youtube 1.10.1
+WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
+VLESS: vpn.dance Lithuania 84.32.109.157

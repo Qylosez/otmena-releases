@@ -1,0 +1,1 @@
+{"updated":"2026-10-06T10:36:00","profiles":["84.32.109.157:8443/grpc","84.32.109.157:443/tcp","84.32.109.157:8444/tcp","64.15.75.112:8444/tcp","84.32.109.157:8447/ws"],"tags":["proxy-grpc","proxy-tcp","proxy-tcp-2","proxy-tcp-3","proxy-ws"],"fallback":"proxy-grpc","country":"Lithuania","server":"84.32.109.157","sni":"yandex.ru","uuid":"5d29f4f3-d732-4c5a-8def-4d03acc59fb3"}

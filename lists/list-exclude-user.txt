@@ -1,4 +1,4 @@
-# Cursor IDE + AI backends (do not DPI-bypass - fixes reconnect loop)
+# Cursor IDE + AI backends (do not DPI-bypass - fixes model catalog / reconnect)
 cursor.com
 www.cursor.com
 cursor.sh

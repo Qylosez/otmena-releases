@@ -2,6 +2,12 @@
   "log": {
     "loglevel": "warning"
   },
+  "dns": {
+    "servers": [
+      "1.1.1.1",
+      "8.8.8.8"
+    ]
+  },
   "inbounds": [
     {
       "tag": "socks-tg",
@@ -14,7 +20,11 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     },
     {
@@ -27,7 +37,11 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     },
     {
@@ -41,22 +55,58 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["http", "tls", "quic"]
+        "destOverride": [
+          "http",
+          "tls",
+          "quic"
+        ]
       }
     }
   ],
   "outbounds": [
     {
-      "tag": "proxy",
+      "tag": "proxy-grpc",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
-            "address": "45.144.48.81",
-            "port": 8444,
+            "address": "84.32.109.157",
+            "port": 8443,
             "users": [
               {
-                "id": "ca14f4fc-edeb-4777-bdb1-3a5468e70dd3",
+                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "yandex.ru",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "3decb73e"
+        },
+        "grpcSettings": {
+          "serviceName": "grpcservice",
+          "multiMode": false
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "84.32.109.157",
+            "port": 443,
+            "users": [
+              {
+                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
                 "encryption": "none"
               }
             ]
@@ -67,10 +117,97 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "loom.com",
+          "serverName": "yandex.ru",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "3decb73e"
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "84.32.109.157",
+            "port": 8444,
+            "users": [
+              {
+                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "yandex.ru",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "3decb73e"
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp-3",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "64.15.75.112",
+            "port": 8444,
+            "users": [
+              {
+                "id": "d3e33c29-9c19-449a-a612-66131bc16a8b",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "deepl.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
           "shortId": ""
+        }
+      }
+    },
+    {
+      "tag": "proxy-ws",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "84.32.109.157",
+            "port": 8447,
+            "users": [
+              {
+                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "wa6c6931e.devs.dance",
+          "allowInsecure": false,
+          "fingerprint": "qq"
+        },
+        "wsSettings": {
+          "host": "wa6c6931e.devs.dance",
+          "path": "/ws"
         }
       }
     },
@@ -85,13 +222,108 @@
   ],
   "routing": {
     "domainStrategy": "IPIfNonMatch",
+    "balancers": [
+      {
+        "tag": "auto",
+        "selector": [
+          "proxy-grpc",
+          "proxy-tcp",
+          "proxy-tcp-2",
+          "proxy-tcp-3",
+          "proxy-ws"
+        ],
+        "fallbackTag": "proxy-grpc",
+        "strategy": {
+          "type": "leastPing"
+        }
+      }
+    ],
     "rules": [
       {
         "type": "field",
-        "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],
-        "outboundTag": "proxy"
+        "domain": [
+          "domain:ru",
+          "domain:su",
+          "domain:xn--p1ai",
+          "domain:max.ru",
+          "domain:oneme.ru",
+          "domain:apptracer.ru",
+          "domain:gov.ru",
+          "domain:gosuslugi.ru",
+          "domain:gu-st.ru",
+          "domain:goskey.ru",
+          "domain:gnivc.ru",
+          "domain:cryptopro.ru",
+          "domain:minjust.ru",
+          "domain:nalog.ru",
+          "domain:nalog.gov.ru",
+          "domain:government.ru",
+          "domain:kremlin.ru",
+          "domain:cbr.ru",
+          "domain:sudrf.ru",
+          "domain:pravo.gov.ru",
+          "domain:regulation.gov.ru",
+          "domain:zakupki.gov.ru",
+          "domain:digital.gov.ru",
+          "domain:roskazna.ru",
+          "domain:minfin.ru",
+          "domain:mid.ru",
+          "domain:mvd.ru",
+          "domain:fss.ru",
+          "domain:pfr.ru",
+          "domain:sfr.gov.ru",
+          "domain:rospotrebnadzor.ru",
+          "domain:roszdravnadzor.ru",
+          "domain:rostrud.ru",
+          "domain:mos.ru",
+          "domain:spb.ru",
+          "domain:consultant.ru",
+          "domain:garant.ru",
+          "domain:yandex.ru",
+          "domain:yandex.net",
+          "domain:yandex.com",
+          "domain:yandex.kz",
+          "domain:ya.ru",
+          "domain:yastatic.net",
+          "domain:yastat.net",
+          "domain:yandexcloud.net",
+          "telemost.yandex.ru",
+          "domain:sber.ru",
+          "domain:sberbank.ru",
+          "domain:sberbank.com",
+          "domain:tbank.ru",
+          "domain:vtb.ru",
+          "domain:alfabank.ru",
+          "domain:gazprombank.ru",
+          "domain:mail.ru",
+          "domain:vk.com",
+          "domain:vk.ru",
+          "domain:ok.ru"
+        ],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "inboundTag": [
+          "socks-tg",
+          "http-cursor",
+          "socks-cursor"
+        ],
+        "balancerTag": "auto"
       }
     ]
   },
-  "remarks": "Otmena | Poland (Warsaw) Reality | TG SOCKS 10808 + Cursor/AI HTTP 10809 / SOCKS 10810"
+  "observatory": {
+    "subjectSelector": [
+      "proxy-grpc",
+      "proxy-tcp",
+      "proxy-tcp-2",
+      "proxy-tcp-3",
+      "proxy-ws"
+    ],
+    "probeUrl": "https://api2.cursor.sh",
+    "probeInterval": "45s",
+    "enableConcurrency": true
+  },
+  "remarks": "Otmena | vpn.dance | Lithuania 84.32.109.157 | RU sites direct"
 }

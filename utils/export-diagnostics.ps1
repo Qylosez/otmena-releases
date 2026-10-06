@@ -12,6 +12,13 @@ $sb = New-Object System.Text.StringBuilder
 [void]$sb.AppendLine(("PowerShell: {0}" -f (Test-PowerShellOk).Message))
 [void]$sb.AppendLine('')
 
+$healthFile = Join-Path $PSScriptRoot 'last-health-check.txt'
+& (Join-Path $PSScriptRoot 'run-health-check.ps1') -Quiet 2>$null | Out-Null
+if (Test-Path $healthFile) {
+    [void]$sb.AppendLine((Get-Content $healthFile -Raw -ErrorAction SilentlyContinue).Trim())
+    [void]$sb.AppendLine('')
+}
+
 [void]$sb.AppendLine('--- Environment ---')
 $envLines = & (Join-Path $PSScriptRoot 'detect-environment.ps1')
 foreach ($line in $envLines) { [void]$sb.AppendLine($line) }
@@ -29,6 +36,33 @@ if (Test-OtmenaPath $xrayPath) {
     [void]$sb.AppendLine('XRAY_PATH=zip ready (restart Otmena to unpack)')
 } else {
     [void]$sb.AppendLine('XRAY_PATH=missing (need xray-windows-64.zip on GitHub Releases or internet)')
+}
+
+$subFile = Join-Path $rootDir 'telegram-vless\subscription.json'
+if (Test-OtmenaPath $subFile) {
+    [void]$sb.AppendLine('VLESS_SUB=present (vpn.dance)')
+} else {
+    [void]$sb.AppendLine('VLESS_SUB=missing')
+}
+$metaFile = Join-Path $rootDir 'telegram-vless\subscription.meta.json'
+if (Test-OtmenaPath $metaFile) {
+    [void]$sb.AppendLine(('VLESS_META={0}' -f ((Get-Content $metaFile -Raw).Trim())))
+}
+
+. (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
+$cursorDiag = Get-CursorTunnelDiagnostics
+foreach ($p in $cursorDiag.Keys) {
+    [void]$sb.AppendLine(("CURSOR_{0}={1}" -f $p, $cursorDiag[$p]))
+}
+if ($cursorDiag.SETTINGS_PROXY -and $cursorDiag.PROXY_URL -and ($cursorDiag.SETTINGS_PROXY -ne $cursorDiag.PROXY_URL)) {
+    [void]$sb.AppendLine('CURSOR_MISMATCH=1 (zapusti CURSOR-WORK.bat)')
+}
+
+$watchLog = Join-Path $PSScriptRoot 'cursor-watch.log'
+if (Test-OtmenaPath $watchLog) {
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine('--- cursor-watch.log (last 15 lines) ---')
+    Get-Content $watchLog -Tail 15 -ErrorAction SilentlyContinue | ForEach-Object { [void]$sb.AppendLine($_) }
 }
 
 $mtprotoScript = Join-Path $PSScriptRoot 'set-telegram-mtproto.ps1'

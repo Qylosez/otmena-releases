@@ -37,10 +37,27 @@ function Test-ServiceAvailable {
 
 function Start-ZapretAlt11([string]$rootDir) {
     if (Test-WinwsRunning) { return $true }
-    $alt11 = Join-Path $rootDir 'scripts\general (ALT11).bat'
-    if (-not (Test-Path $alt11)) { return $false }
-    Start-Process cmd.exe -ArgumentList "/c `"$alt11`"" -WorkingDirectory $rootDir -WindowStyle Hidden
-    Start-Sleep -Seconds 5
+    if (-not (Get-Command Install-WinDivertRuntime -ErrorAction SilentlyContinue)) {
+        . (Join-Path $PSScriptRoot 'otmena-common.ps1')
+    }
+    $winws = Join-Path $rootDir 'bin\winws.exe'
+    $argsFile = Join-Path $PSScriptRoot 'alt11-service-args.txt'
+    if (-not (Test-Path $winws) -or -not (Test-Path $argsFile)) { return $false }
+    $raw = (Get-Content -LiteralPath $argsFile -Raw -ErrorAction SilentlyContinue)
+    if (-not $raw) { return $false }
+    Reset-WinDivertService
+    $staged = Install-WinDivertRuntime -RootDir $rootDir
+    $exeToRun = if ($staged) { $staged } else { $winws }
+    try { Unblock-File -LiteralPath $exeToRun -ErrorAction SilentlyContinue } catch {}
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $exeToRun
+    $psi.Arguments = $raw.Trim()
+    $psi.WorkingDirectory = (Split-Path -Parent $exeToRun)
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.WindowStyle = 'Hidden'
+    [System.Diagnostics.Process]::Start($psi) | Out-Null
+    Start-Sleep -Seconds 3
     return (Test-WinwsRunning)
 }
 

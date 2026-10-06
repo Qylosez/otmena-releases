@@ -12,11 +12,17 @@ Start-Sleep -Milliseconds 300
 $opened = Open-TgUriSafe -Uri $uri -Quiet:$Quiet -Kind 'socks'
 
 if ($opened) {
-    if (-not $Quiet) { Write-Host "SOCKS dobavlen v Telegram: 127.0.0.1:$Port" -ForegroundColor Green }
+    if (-not $Quiet) {
+        Write-Host "SOCKS dobavlen v Telegram: 127.0.0.1:$Port" -ForegroundColor Green
+        Write-Host 'Esli vyshel toast "Nekorrektnaja ssylka" — nastroj vruchnuyu (okno s instrukciej).' -ForegroundColor Yellow
+    }
+    if (-not $Quiet) {
+        Show-TelegramSocksManual -Port $Port
+    }
     exit 0
 }
 
 if (-not $Quiet) {
-    Write-Host 'SOCKS vruchnuyu: 127.0.0.1 port 10808' -ForegroundColor Yellow
+    Show-TelegramSocksManual -Port $Port
 }
 exit 2
