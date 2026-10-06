@@ -24,9 +24,9 @@ param(
 
 $ErrorActionPreference = 'SilentlyContinue'
 $utilsDir = $PSScriptRoot
-$rootDir = Split-Path $utilsDir -Parent
 $regPath = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings'
 
+. (Join-Path $utilsDir 'otmena-common.ps1')
 . (Join-Path $utilsDir 'cursor-tunnel.ps1')
 
 function Say($msg, $color = 'Gray') { if (-not $Quiet) { Write-Host $msg -ForegroundColor $color } }
@@ -56,18 +56,8 @@ public static extern bool InternetSetOption(IntPtr hInternet, int dwOption, IntP
 
 function Set-SystemProxyOn([int]$p) {
     Set-ItemProperty -Path $regPath -Name ProxyServer -Value "127.0.0.1:$p" -Type String -Force
-    $bypass = '<local>;localhost;127.*;10.*;172.16.*;192.168.*'
-    $directFile = Join-Path $rootDir 'lists\list-direct-ru.txt'
-    if (Test-Path $directFile) {
-        $extra = @()
-        Get-Content $directFile | ForEach-Object {
-            $d = ([string]$_).Trim()
-            if (-not $d -or $d.StartsWith('#')) { return }
-            $extra += $d
-            if (-not $d.StartsWith('*.')) { $extra += ('*.' + $d) }
-        }
-        if ($extra.Count) { $bypass = $bypass + ';' + ($extra -join ';') }
-    }
+    $bypass = Get-OtmenaProxyOverride
+    if (-not $bypass) { $bypass = '<local>;localhost;127.*;10.*;172.16.*;192.168.*;*.ru;*.su;*.xn--p1ai' }
     Set-ItemProperty -Path $regPath -Name ProxyOverride -Value $bypass -Type String -Force
     Set-ItemProperty -Path $regPath -Name ProxyEnable -Value 1 -Type DWord -Force
     Remove-ItemProperty -Path $regPath -Name AutoConfigURL -ErrorAction SilentlyContinue

@@ -25,19 +25,20 @@ function Test-KeepRel([string]$rel) {
         $pl = $p.ToLowerInvariant()
         if ($n -eq $pl) { return $true }
         if ($n.StartsWith($pl + '\') -or $n.StartsWith($pl + '/')) { return $true }
+        if ($pl.StartsWith($n + '\') -or $pl.StartsWith($n + '/')) { return $true }
     }
     return $false
 }
 
 $wanted = @{}
 Get-ChildItem -LiteralPath $payload -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
-    $wanted[(Get-Rel $payload $_.FullName)] = $true
+    $wanted[(Get-Rel $payload $_.FullName).ToLowerInvariant()] = $true
 }
 
 $removed = 0
 Get-ChildItem -LiteralPath $root -Recurse -File -Force -ErrorAction SilentlyContinue | ForEach-Object {
     $rel = Get-Rel $root $_.FullName
-    if ($wanted.ContainsKey($rel)) { return }
+    if ($wanted.ContainsKey($rel.ToLowerInvariant())) { return }
     if (Test-KeepRel $rel) { return }
     try {
         Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
@@ -50,6 +51,20 @@ if (Test-Path -LiteralPath $oldExe) {
     Remove-Item -LiteralPath $oldExe -Force -ErrorAction SilentlyContinue
     $removed++
 }
+
+Get-ChildItem -LiteralPath $root -Recurse -Directory -Force -ErrorAction SilentlyContinue |
+    Sort-Object { $_.FullName.Length } -Descending |
+    ForEach-Object {
+        $rel = Get-Rel $root $_.FullName
+        if (Test-KeepRel $rel) { return }
+        $kids = @(Get-ChildItem -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue)
+        if ($kids.Count -eq 0) {
+            try {
+                Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop
+                $removed++
+            } catch {}
+        }
+    }
 
 Write-Output ("STALE_REMOVED={0}" -f $removed)
 exit 0

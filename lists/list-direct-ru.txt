@@ -1,7 +1,13 @@
 # RU sites that must NOT go through the Europe tunnel
 # (Telemost, Gosuslugi, banks). Used by xray routing + WinINet ProxyOverride.
+# ProxyOverride also adds *.ru / *.xn--p1ai so any regional gov host is covered.
 gov.ru
 gosuslugi.ru
+gu-st.ru
+goskey.ru
+gnivc.ru
+cryptopro.ru
+minjust.ru
 nalog.ru
 nalog.gov.ru
 government.ru

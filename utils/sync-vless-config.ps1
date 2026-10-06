@@ -216,13 +216,17 @@ function Get-PreferOrder {
 function Get-DirectDomainJson {
     $f = Join-Path $rootDir 'lists\list-direct-ru.txt'
     $items = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($tld in @('ru', 'su', 'xn--p1ai')) {
+        if ($seen.Add($tld)) { [void]$items.Add((Get-JsonString ('domain:' + $tld))) }
+    }
     if (Test-Path $f) {
         Get-Content -LiteralPath $f -ErrorAction SilentlyContinue | ForEach-Object {
             $d = ([string]$_).Trim()
             if (-not $d -or $d.StartsWith('#')) { return }
-            if ($d -match '^[a-z0-9.-]+$') {
-                [void]$items.Add((Get-JsonString ('domain:' + $d)))
-            }
+            if ($d -notmatch '^[a-z0-9.-]+$') { return }
+            if (-not $seen.Add($d)) { return }
+            [void]$items.Add((Get-JsonString ('domain:' + $d)))
         }
     }
     if ($items.Count -eq 0) { return '' }

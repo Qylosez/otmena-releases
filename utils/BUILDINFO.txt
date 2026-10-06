@@ -1,5 +1,5 @@
-Otmena build 1.1.27
+Otmena build 1.1.29
 Date: 2026-10-06
-Fix: vpn.dance Lithuania 84.32.109.157, Reality SNI yandex.ru
-Fix: Telemost / Gosuslugi / gov sites go DIRECT (not Europe tunnel)
-Fix: Updates delete leftover files from old Otmena installs
+Zapret: Flowseal/zapret-discord-youtube 1.10.1
+VLESS: vpn.dance Lithuania 84.32.109.157 (TCP Reality / gRPC / WS balancer)
+Includes: ALT11 1.10.1 fakes, RU sites direct, clean stale updates, Cursor HTTP 10809

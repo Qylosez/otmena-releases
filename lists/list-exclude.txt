@@ -60,6 +60,11 @@ gallery.vsassets.io
 gallerycdn.vsassets.io
 gosuslugi.ru
 gov.ru
+gu-st.ru
+goskey.ru
+gnivc.ru
+cryptopro.ru
+minjust.ru
 nalog.ru
 nalog.gov.ru
 government.ru

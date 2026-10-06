@@ -242,8 +242,16 @@
       {
         "type": "field",
         "domain": [
+          "domain:ru",
+          "domain:su",
+          "domain:xn--p1ai",
           "domain:gov.ru",
           "domain:gosuslugi.ru",
+          "domain:gu-st.ru",
+          "domain:goskey.ru",
+          "domain:gnivc.ru",
+          "domain:cryptopro.ru",
+          "domain:minjust.ru",
           "domain:nalog.ru",
           "domain:nalog.gov.ru",
           "domain:government.ru",

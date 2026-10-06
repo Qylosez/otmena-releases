@@ -216,13 +216,21 @@ function Get-OtmenaDirectDomainList {
 
 function Get-OtmenaProxyOverride {
     $parts = New-Object System.Collections.Generic.List[string]
-    foreach ($x in @('<local>', 'localhost', '127.*', '10.*', '172.16.*', '192.168.*')) {
+    # *.ru / *.рф — Tesemost, Gosuslugi and any regional gov host skip the Europe proxy.
+    foreach ($x in @('<local>', 'localhost', '127.*', '10.*', '172.16.*', '192.168.*', '*.ru', '*.su', '*.xn--p1ai')) {
         [void]$parts.Add($x)
     }
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($p in $parts) { [void]$seen.Add($p) }
     foreach ($d in (Get-OtmenaDirectDomainList)) {
+        if ($d -match '\.(ru|su|xn--p1ai)$') { continue }
+        if (-not $seen.Add($d)) { continue }
         [void]$parts.Add($d)
         if ($d -notlike '*.*') { continue }
-        if (-not $d.StartsWith('*.')) { [void]$parts.Add('*.' + $d) }
+        if (-not $d.StartsWith('*.')) {
+            $wild = '*.' + $d
+            if ($seen.Add($wild)) { [void]$parts.Add($wild) }
+        }
     }
     return ($parts.ToArray() -join ';')
 }
