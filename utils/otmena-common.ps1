@@ -301,6 +301,7 @@ function Get-OtmenaPreserveRelativePaths {
         'utils\corp_tg_hint.done',
         'utils\portable.flag',
         'utils\autostart.on',
+        'utils\cursor-shortcuts.json',
         'utils\telegram-mtproto.json',
         'telegram-vless\subscription.json',
         'telegram-vless\bin\xray.exe',

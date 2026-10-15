@@ -612,7 +612,7 @@ switch ($Action) {
         if ($cursor) {
             $ep = Get-CursorTunnelEndpoint
             $url = if ($ep.Mode -eq 'socks') { "socks5://127.0.0.1:$($ep.Port)" } else { "http://127.0.0.1:$($ep.Port)" }
-            Write-Ok ("Cursor Europe -> {0} ({1}). POLNOSTYU perezapusti Cursor." -f $url, $ep.Label)
+            Write-Ok ("Cursor Europe -> {0} ({1}). Cursor perezapuschen s proksi." -f $url, $ep.Label)
         } else {
             Write-Warn 'Cursor Europe: tunnel ne otvechaet, proksi ne stavlyu (inache reconnect loop).'
         }

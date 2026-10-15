@@ -133,6 +133,7 @@ public static extern IntPtr SendMessageTimeout(IntPtr hWnd, int msg, IntPtr wPar
 
 if ($Disable) {
     Set-CursorProcessProxy -Clear
+    & (Join-Path $PSScriptRoot 'cursor-agent-proxy.ps1') -Clear -Quiet:$Quiet
     Write-Note 'Cursor proxy otklyuchyon (pryamoe soedinenie).' Yellow
     Set-CursorProxyState -enabledByOtmena:$false -Mode 'none'
 } elseif ($wrote) {

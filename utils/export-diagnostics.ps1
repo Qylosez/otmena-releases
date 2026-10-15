@@ -75,6 +75,15 @@ if (Test-OtmenaPath $mtprotoScript) {
     }
 }
 
+$agentLog = Join-Path $PSScriptRoot 'cursor-agent.log'
+[void]$sb.AppendLine('')
+[void]$sb.AppendLine('--- cursor-agent.log (last 20 lines) ---')
+if (Test-OtmenaPath $agentLog) {
+    Get-Content $agentLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { [void]$sb.AppendLine($_) }
+} else {
+    [void]$sb.AppendLine('(no cursor-agent.log)')
+}
+
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('--- launcher.log (last 40 lines) ---')
 $logFile = Join-Path $PSScriptRoot 'launcher.log'

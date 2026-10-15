@@ -89,7 +89,10 @@ function Test-EndpointLive {
         [int]$Port
     )
 
-    if (-not (Test-PortListen $Port)) { return $false }
+    if (-not (Test-PortListen $Port)) {
+        if ($Mode -eq 'http') { $script:CursorProbeHttp = 'closed' } else { $script:CursorProbeSocks = 'closed' }
+        return $false
+    }
 
     $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
     if (-not $curl) {
@@ -102,11 +105,10 @@ function Test-EndpointLive {
         @('-x', "http://127.0.0.1:$Port")
     }
 
-    # gstatic is not enough: Cursor is up only if api2.cursor.sh answers through the tunnel.
-    foreach ($url in @('https://api2.cursor.sh', 'https://www.cursor.com')) {
-        $code = Invoke-CurlCode -Url $url -ProxyArg $proxyArg -TimeoutSec 8
-        if ($code -match '^(200|204|301|302|307|308|401|403|404)$') { return $true }
-    }
+    # A blocked or empty answer must not paint the Cursor tile green.
+    $code = Invoke-CurlCode -Url 'https://api2.cursor.sh' -ProxyArg $proxyArg -TimeoutSec 8
+    if ($Mode -eq 'http') { $script:CursorProbeHttp = [string]$code } else { $script:CursorProbeSocks = [string]$code }
+    if ($code -match '^(200|204|301|302|307|308)$') { return $true }
     return $false
 }
 
@@ -317,6 +319,8 @@ function Get-CursorTunnelDiagnostics {
         CURL           = [int]([bool](Get-Command curl.exe -ErrorAction SilentlyContinue))
         SOCKS_LIVE     = [int](Test-EndpointLive -Mode socks -Port $script:TelegramSocksPort)
         HTTP_LIVE      = [int](Test-EndpointLive -Mode http -Port $script:CursorHttpPort)
+        HTTP_CODE      = [string]$script:CursorProbeHttp
+        SOCKS_CODE     = [string]$script:CursorProbeSocks
         TUNNEL_UP      = [int]([bool]$ep)
         ENDPOINT       = if ($ep) { "$($ep.Label):$($ep.Port)" } else { 'none' }
         MODE           = (Get-CursorTunnelMode)
