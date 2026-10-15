@@ -1,7 +1,7 @@
-Otmena build 1.1.36
+Otmena build 1.1.37
 Date: 2026-10-15
 Zapret: Flowseal/zapret-discord-youtube 1.10.1
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
-VLESS: vpn.dance Lithuania 5.199.169.192 (Reality SNI video.yahoo.com, until 23.10.2026)
+VLESS: vpn.dance Lithuania 84.32.149.255 (Reality SNI yahooapis.com, until 23.10.2026)
 Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
 Cursor: relaunch with HTTP_PROXY on the process and shortcut, so the agent cannot ignore 127.0.0.1:10809

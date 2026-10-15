@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.169.192",
+            "address": "84.32.149.255",
             "port": 8443,
             "users": [
               {
-                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
+                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
                 "encryption": "none"
               }
             ]
@@ -85,7 +85,7 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "video.yahoo.com",
+          "serverName": "yahooapis.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
           "shortId": "d7e1a111"
@@ -102,11 +102,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.169.192",
+            "address": "84.32.149.255",
             "port": 443,
             "users": [
               {
-                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
+                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
                 "encryption": "none"
               }
             ]
@@ -117,7 +117,7 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "video.yahoo.com",
+          "serverName": "yahooapis.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
           "shortId": "d7e1a111"
@@ -130,11 +130,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.169.192",
+            "address": "84.32.149.255",
             "port": 8444,
             "users": [
               {
-                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
+                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
                 "encryption": "none"
               }
             ]
@@ -145,10 +145,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "video.yahoo.com",
+          "serverName": "yahooapis.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "d7e1a2bb"
+          "shortId": "6ba85179e30d4fc2"
         }
       }
     },
@@ -186,11 +186,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.169.192",
+            "address": "84.32.149.255",
             "port": 8447,
             "users": [
               {
-                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
+                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
                 "encryption": "none"
               }
             ]
@@ -201,12 +201,12 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "wf3531ef9.devs.dance",
+          "serverName": "wd522c7bd.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
-          "host": "wf3531ef9.devs.dance",
+          "host": "wd522c7bd.devs.dance",
           "path": "/ws"
         }
       }
