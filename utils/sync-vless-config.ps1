@@ -12,6 +12,7 @@ param(
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
+$script:VlessFromCache = $false
 $utilsDir = $PSScriptRoot
 $rootDir = Split-Path $utilsDir -Parent
 $vlessDir = Join-Path $rootDir 'telegram-vless'
@@ -105,10 +106,12 @@ function Get-SubscriptionText {
                 return $body
             }
         } catch {
+            $script:VlessFromCache = $true
             Say 'vpn.dance: ne udalos obnovit podpisku, beru kesh.' Yellow
         }
     }
     if (Test-Path $cacheFile) {
+        if (-not $Offline) { $script:VlessFromCache = $true }
         return Get-Content $cacheFile -Raw -ErrorAction SilentlyContinue
     }
     return $null
@@ -449,5 +452,6 @@ $meta = @{
 [IO.File]::WriteAllText($metaFile, $meta, $utf8)
 
 Say ("VLESS: {0} profilej, balancer {1}" -f $selectorTags.Count, ($selectorTags -join ', ')) Green
-Write-Output ("VLESS_SYNC=ok profiles={0}" -f $selectorTags.Count)
+$syncState = if ($script:VlessFromCache) { 'cache' } else { 'ok' }
+Write-Output ("VLESS_SYNC={0} profiles={1}" -f $syncState, $selectorTags.Count)
 exit 0

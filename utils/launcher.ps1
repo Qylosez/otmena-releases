@@ -182,15 +182,17 @@ function Get-ZapretStatusObject {
         $taskAuto = [bool](Get-ScheduledTask -TaskName 'Zapret-Start' -ErrorAction SilentlyContinue)
     }
     $startupAuto = Test-StartupAutostart
+    $runAuto = Test-OtmenaRunAutostart
     $autoType = 'none'
     if ($taskAuto) { $autoType = 'task' }
     elseif ($startupAuto) { $autoType = 'startup' }
+    elseif ($runAuto) { $autoType = 'run' }
     return [PSCustomObject]@{
         ZapretRunning = Test-WinwsRunning
         TelegramRunning = ($tgPort -or $tgProc)
         WorkMode = Test-WorkMode
         IsAdmin = Test-IsAdmin
-        AutostartInstalled = ($taskAuto -or $startupAuto)
+        AutostartInstalled = ($taskAuto -or $startupAuto -or $runAuto)
         AutostartType = $autoType
     }
 }
@@ -579,6 +581,20 @@ function Start-CursorEurope {
 if ($MyInvocation.InvocationName -ne '.') {
 switch ($Action) {
     'start' {
+        if (-not (Test-OtmenaNetworkUp)) {
+            Write-Info 'Zhdu set, chtoby obnovit klyuch vpn.dance...'
+            Wait-OtmenaNetwork -Seconds 35 | Out-Null
+        }
+        $autoFlag = Join-Path $PSScriptRoot 'autostart.on'
+        if (Test-Path -LiteralPath $autoFlag) {
+            $already = Get-ZapretStatusObject
+            if (-not $already.AutostartInstalled) {
+                & (Join-Path $PSScriptRoot 'ensure-autostart.ps1') -Quiet | Out-Null
+            } else {
+                Enable-OtmenaStartupApproved -Folder 'StartupFolder' -Name 'Otmena.lnk'
+                Enable-OtmenaStartupApproved -Folder 'Run' -Name 'Otmena'
+            }
+        }
         if (-not $Quiet) {
             Write-Host ''
             Write-Host '=== Zapret: avto-perekljuchenie ===' -ForegroundColor White

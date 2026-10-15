@@ -94,7 +94,12 @@ function Start-XrayQuiet {
         Copy-Item -Path $configFile -Destination $configBak -Force -ErrorAction SilentlyContinue
     }
 
-    & (Join-Path $PSScriptRoot 'sync-vless-config.ps1') -Quiet | Out-Null
+    $syncOut = & (Join-Path $PSScriptRoot 'sync-vless-config.ps1') -Quiet | Out-String
+    if ($syncOut -match 'VLESS_SYNC=cache') {
+        if (Wait-OtmenaNetwork -Seconds 15) {
+            & (Join-Path $PSScriptRoot 'sync-vless-config.ps1') -Quiet | Out-Null
+        }
+    }
     if (-not (Test-Path $xrayExe)) {
         & (Join-Path $PSScriptRoot 'ensure-xray.ps1') -Quiet | Out-Null
         if (-not (Test-Path $xrayExe)) { return 'no-xray' }

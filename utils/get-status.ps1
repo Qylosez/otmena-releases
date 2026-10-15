@@ -1,5 +1,6 @@
 #Requires -Version 3.0
 $ErrorActionPreference = 'SilentlyContinue'
+. (Join-Path $PSScriptRoot 'otmena-common.ps1')
 
 $rootDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 
@@ -32,20 +33,41 @@ $zapret = [bool](Get-Process -Name winws -ErrorAction SilentlyContinue)
 $tgPort = Test-PortListen 10808
 $tgProc = [bool](Get-Process -Name xray -ErrorAction SilentlyContinue)
 $workMode = Test-Path (Join-Path $PSScriptRoot 'work_mode.enabled')
-$taskAuto = [bool](Get-ScheduledTask -TaskName 'Otmena-Start' -ErrorAction SilentlyContinue)
-if (-not $taskAuto) {
-    $taskAuto = [bool](Get-ScheduledTask -TaskName 'Zapret-Start' -ErrorAction SilentlyContinue)
+function Test-AutoPieces {
+    $task = [bool](Get-ScheduledTask -TaskName 'Otmena-Start' -ErrorAction SilentlyContinue)
+    if (-not $task) {
+        $task = [bool](Get-ScheduledTask -TaskName 'Zapret-Start' -ErrorAction SilentlyContinue)
+    }
+    return @{
+        Task = $task
+        Startup = (Test-StartupAutostart)
+        Run = (Test-OtmenaRunAutostart)
+    }
 }
-$startupAuto = Test-StartupAutostart
+
+$pieces = Test-AutoPieces
+$autoFlag = Join-Path $PSScriptRoot 'autostart.on'
+if (Test-Path -LiteralPath $autoFlag) {
+    Enable-OtmenaStartupApproved -Folder 'StartupFolder' -Name 'Otmena.lnk'
+    Enable-OtmenaStartupApproved -Folder 'Run' -Name 'Otmena'
+    if (-not ($pieces.Task -or $pieces.Startup -or $pieces.Run)) {
+        & (Join-Path $PSScriptRoot 'ensure-autostart.ps1') -Quiet | Out-Null
+        $pieces = Test-AutoPieces
+    }
+}
+$taskAuto = $pieces.Task
+$startupAuto = $pieces.Startup
+$runAuto = $pieces.Run
 $autoType = 'none'
 if ($taskAuto) { $autoType = 'task' }
 elseif ($startupAuto) { $autoType = 'startup' }
+elseif ($runAuto) { $autoType = 'run' }
 
 Write-Output ("ZAPRET={0}" -f [int]$zapret)
 Write-Output ("ZAPRET_ADMIN_OK={0}" -f [int]($isAdmin -or (Get-ScheduledTask -TaskName 'Otmena-Winws' -ErrorAction SilentlyContinue)))
 Write-Output ("TG={0}" -f [int]($tgPort -or $tgProc))
 Write-Output ("ADMIN={0}" -f [int]$isAdmin)
-Write-Output ("AUTO={0}" -f [int]($taskAuto -or $startupAuto))
+Write-Output ("AUTO={0}" -f [int]($taskAuto -or $startupAuto -or $runAuto))
 Write-Output ("AUTO_TYPE={0}" -f $autoType)
 Write-Output ("WORK={0}" -f [int]$workMode)
 Write-Output ("XRAY={0}" -f [int](Test-Path (Join-Path $rootDir 'telegram-vless\bin\xray.exe')))

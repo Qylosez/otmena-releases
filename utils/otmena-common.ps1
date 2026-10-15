@@ -235,6 +235,64 @@ function Get-OtmenaProxyOverride {
     return ($parts.ToArray() -join ';')
 }
 
+function Test-OtmenaNetworkUp {
+    $client = $null
+    try {
+        $client = New-Object System.Net.Sockets.TcpClient
+        $wait = $client.BeginConnect('1.1.1.1', 443, $null, $null)
+        if ($wait.AsyncWaitHandle.WaitOne(700, $false) -and $client.Connected) { return $true }
+    } catch {
+    } finally {
+        if ($client) { try { $client.Close() } catch {} }
+    }
+    try {
+        $ips = @([Net.Dns]::GetHostAddresses('key.vpn.dance'))
+        foreach ($ip in $ips) {
+            if ($ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork) { continue }
+            $client = New-Object System.Net.Sockets.TcpClient
+            try {
+                $wait = $client.BeginConnect($ip, 443, $null, $null)
+                if ($wait.AsyncWaitHandle.WaitOne(1500, $false) -and $client.Connected) { return $true }
+            } finally {
+                try { $client.Close() } catch {}
+            }
+        }
+    } catch {}
+    return $false
+}
+
+function Wait-OtmenaNetwork {
+    param([int]$Seconds = 35)
+    if (Test-OtmenaNetworkUp) { return $true }
+    $deadline = (Get-Date).AddSeconds($Seconds)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Seconds 2
+        if (Test-OtmenaNetworkUp) { return $true }
+    }
+    return $false
+}
+
+function Test-OtmenaRunAutostart {
+    try {
+        $value = (Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'Otmena' -ErrorAction SilentlyContinue).Otmena
+        return -not [string]::IsNullOrWhiteSpace([string]$value)
+    } catch {
+        return $false
+    }
+}
+
+function Enable-OtmenaStartupApproved {
+    param([string]$Folder, [string]$Name)
+    try {
+        $keyPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\$Folder"
+        if (-not (Test-Path -Path $keyPath)) {
+            New-Item -Path $keyPath -Force | Out-Null
+        }
+        $bytes = [byte[]](2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+        New-ItemProperty -Path $keyPath -Name $Name -PropertyType Binary -Value $bytes -Force | Out-Null
+    } catch {}
+}
+
 function Get-OtmenaPreserveRelativePaths {
     return @(
         'utils\work_mode.enabled',
@@ -242,6 +300,7 @@ function Get-OtmenaPreserveRelativePaths {
         'utils\first_run.done',
         'utils\corp_tg_hint.done',
         'utils\portable.flag',
+        'utils\autostart.on',
         'utils\telegram-mtproto.json',
         'telegram-vless\subscription.json',
         'telegram-vless\bin\xray.exe',

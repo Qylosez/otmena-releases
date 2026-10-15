@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.109.157",
+            "address": "5.199.169.192",
             "port": 8443,
             "users": [
               {
-                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
+                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
                 "encryption": "none"
               }
             ]
@@ -85,10 +85,10 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yandex.ru",
+          "serverName": "video.yahoo.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "3decb73e"
+          "shortId": "d7e1a111"
         },
         "grpcSettings": {
           "serviceName": "grpcservice",
@@ -102,11 +102,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.109.157",
+            "address": "5.199.169.192",
             "port": 443,
             "users": [
               {
-                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
+                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
                 "encryption": "none"
               }
             ]
@@ -117,10 +117,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yandex.ru",
+          "serverName": "video.yahoo.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "3decb73e"
+          "shortId": "d7e1a111"
         }
       }
     },
@@ -130,11 +130,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.109.157",
+            "address": "5.199.169.192",
             "port": 8444,
             "users": [
               {
-                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
+                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
                 "encryption": "none"
               }
             ]
@@ -145,10 +145,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yandex.ru",
+          "serverName": "video.yahoo.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "3decb73e"
+          "shortId": "d7e1a2bb"
         }
       }
     },
@@ -158,11 +158,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "64.15.75.112",
-            "port": 8444,
+            "address": "217.60.25.145",
+            "port": 443,
             "users": [
               {
-                "id": "d3e33c29-9c19-449a-a612-66131bc16a8b",
+                "id": "140a3105-4436-4692-9326-3e49ac9bdec9",
                 "encryption": "none"
               }
             ]
@@ -173,10 +173,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "deepl.com",
+          "serverName": "intezio4.vpn.dance",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": ""
+          "shortId": "3decb73e"
         }
       }
     },
@@ -186,11 +186,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.109.157",
+            "address": "5.199.169.192",
             "port": 8447,
             "users": [
               {
-                "id": "5d29f4f3-d732-4c5a-8def-4d03acc59fb3",
+                "id": "d3a08dd7-c5f4-448d-8706-4bc0bb2731e0",
                 "encryption": "none"
               }
             ]
@@ -201,12 +201,12 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "wa6c6931e.devs.dance",
+          "serverName": "wf3531ef9.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
-          "host": "wa6c6931e.devs.dance",
+          "host": "wf3531ef9.devs.dance",
           "path": "/ws"
         }
       }
@@ -245,9 +245,6 @@
           "domain:ru",
           "domain:su",
           "domain:xn--p1ai",
-          "domain:max.ru",
-          "domain:oneme.ru",
-          "domain:apptracer.ru",
           "domain:gov.ru",
           "domain:gosuslugi.ru",
           "domain:gu-st.ru",
@@ -287,7 +284,7 @@
           "domain:yastatic.net",
           "domain:yastat.net",
           "domain:yandexcloud.net",
-          "telemost.yandex.ru",
+          "domain:telemost.yandex.ru",
           "domain:sber.ru",
           "domain:sberbank.ru",
           "domain:sberbank.com",
@@ -298,7 +295,17 @@
           "domain:mail.ru",
           "domain:vk.com",
           "domain:vk.ru",
-          "domain:ok.ru"
+          "domain:ok.ru",
+          "domain:max.ru",
+          "domain:web.max.ru",
+          "domain:st.max.ru",
+          "domain:download.max.ru",
+          "domain:oneme.ru",
+          "domain:i.oneme.ru",
+          "domain:ws-api.oneme.ru",
+          "domain:api.oneme.ru",
+          "domain:apptracer.ru",
+          "domain:sdk-api.apptracer.ru"
         ],
         "outboundTag": "direct"
       },
@@ -325,5 +332,5 @@
     "probeInterval": "45s",
     "enableConcurrency": true
   },
-  "remarks": "Otmena | vpn.dance | Lithuania 84.32.109.157 | RU sites direct"
+  "remarks": "Otmena | vpn.dance | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
 }
