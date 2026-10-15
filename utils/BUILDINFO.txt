@@ -1,4 +1,4 @@
-Otmena build 1.1.35
+Otmena build 1.1.36
 Date: 2026-10-15
 Zapret: Flowseal/zapret-discord-youtube 1.10.1
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin

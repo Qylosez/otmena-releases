@@ -62,7 +62,9 @@ function Get-ShortcutDirs {
         [Environment]::GetFolderPath('Desktop'),
         [Environment]::GetFolderPath('Programs'),
         (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'),
-        (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs')
+        (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'),
+        (Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'),
+        (Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned')
     )) {
         if ($d -and (Test-Path -LiteralPath $d)) { $dirs += $d }
     }
