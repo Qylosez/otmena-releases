@@ -6,7 +6,8 @@ param(
     [int]$Port = 0,
     [string]$Label = 'manual',
     [switch]$Disable,
-    [switch]$Quiet
+    [switch]$Quiet,
+    [switch]$RestartCursor
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -97,11 +98,47 @@ if ($Disable) {
     } | Out-Null
 }
 
+function Set-CursorProcessProxy([string]$url, [switch]$Clear) {
+    $reg = 'HKCU:\Environment'
+    $names = @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'NO_PROXY', 'no_proxy', 'NODE_USE_ENV_PROXY')
+    if ($Clear) {
+        foreach ($name in $names) {
+            $cur = [string](Get-ItemProperty -Path $reg -Name $name -ErrorAction SilentlyContinue).$name
+            $ours = $cur -match '127\.0\.0\.1:108(08|09|10)' -or ($name -eq 'NODE_USE_ENV_PROXY' -and $cur -eq '1') -or (($name -eq 'NO_PROXY' -or $name -eq 'no_proxy') -and $cur -match 'xn--p1ai')
+            if ($ours) {
+                Remove-ItemProperty -Path $reg -Name $name -ErrorAction SilentlyContinue
+            }
+        }
+    } else {
+        foreach ($name in @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy')) {
+            Set-ItemProperty -Path $reg -Name $name -Value $url -Type String -Force
+        }
+        $bypass = 'localhost,127.0.0.1,::1,.ru,.su,.xn--p1ai'
+        Set-ItemProperty -Path $reg -Name NO_PROXY -Value $bypass -Type String -Force
+        Set-ItemProperty -Path $reg -Name no_proxy -Value $bypass -Type String -Force
+        Set-ItemProperty -Path $reg -Name NODE_USE_ENV_PROXY -Value '1' -Type String -Force
+    }
+    try {
+        $sig = @'
+[DllImport("user32.dll", CharSet = CharSet.Unicode)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, int msg, IntPtr wParam, string lParam, int flags, int timeout, out IntPtr result);
+'@
+        if (-not ('Otmena.EnvBroadcast' -as [type])) {
+            Add-Type -MemberDefinition $sig -Name 'EnvBroadcast' -Namespace 'Otmena' | Out-Null
+        }
+        $result = [IntPtr]::Zero
+        [Otmena.EnvBroadcast]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [IntPtr]::Zero, 'Environment', 2, 2000, [ref]$result) | Out-Null
+    } catch {}
+}
+
 if ($Disable) {
+    Set-CursorProcessProxy -Clear
     Write-Note 'Cursor proxy otklyuchyon (pryamoe soedinenie).' Yellow
     Set-CursorProxyState -enabledByOtmena:$false -Mode 'none'
 } elseif ($wrote) {
-    Write-Note "Cursor -> $proxyUrl ($Label). POLNOSTYU zakroj i otkroj Cursor." Green
+    Set-CursorProcessProxy -url $proxyUrl
+    & (Join-Path $PSScriptRoot 'cursor-agent-proxy.ps1') -ProxyUrl $proxyUrl -Restart:$RestartCursor -Quiet:$Quiet
+    Write-Note "Cursor -> $proxyUrl ($Label). Esli okno bylo otkryto, Otmena perezapuskaet ego." Green
     Set-CursorProxyState -enabledByOtmena:$true -Mode $Mode -Port $Port -Label $Label -MarkOk
 } else {
     Write-Note 'Cursor settings.json ne najden - zapusti Cursor odin raz, potom Otmena snova.' Yellow

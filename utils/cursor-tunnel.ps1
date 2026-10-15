@@ -102,9 +102,10 @@ function Test-EndpointLive {
         @('-x', "http://127.0.0.1:$Port")
     }
 
-    foreach ($url in @('https://api2.cursor.sh', 'https://www.cursor.com', 'https://www.gstatic.com/generate_204')) {
+    # gstatic is not enough: Cursor is up only if api2.cursor.sh answers through the tunnel.
+    foreach ($url in @('https://api2.cursor.sh', 'https://www.cursor.com')) {
         $code = Invoke-CurlCode -Url $url -ProxyArg $proxyArg -TimeoutSec 8
-        if ($code -match '^(200|204|301|302|307|308)$') { return $true }
+        if ($code -match '^(200|204|301|302|307|308|401|403|404)$') { return $true }
     }
     return $false
 }
@@ -223,7 +224,10 @@ function Clear-StaleCursorProxy {
 }
 
 function Enable-CursorTunnelProxy {
-    param([switch]$Quiet)
+    param(
+        [switch]$Quiet,
+        [switch]$RestartCursor
+    )
 
     $ep = Get-CursorTunnelEndpoint
     if (-not $ep) {
@@ -232,7 +236,7 @@ function Enable-CursorTunnelProxy {
     }
 
     $proxyScript = Join-Path $PSScriptRoot 'cursor-proxy.ps1'
-    & $proxyScript -Mode $ep.Mode -Port $ep.Port -Label $ep.Label -Quiet:$Quiet 2>$null | Out-Null
+    & $proxyScript -Mode $ep.Mode -Port $ep.Port -Label $ep.Label -Quiet:$Quiet -RestartCursor:$RestartCursor 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { return $false }
 
     if (Test-WorkModeEnabled) {

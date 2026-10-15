@@ -571,7 +571,7 @@ function Start-CursorEurope {
             Write-Warn 'vpn.dance: net rabochego profilya na etoj seti'
         }
     }
-    if (Enable-CursorTunnelProxy -Quiet:$Quiet) {
+    if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
         return $true
     }
     Disable-CursorTunnelProxy -Quiet | Out-Null

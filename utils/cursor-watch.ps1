@@ -33,7 +33,11 @@ while ($true) {
     }
     elseif ($hasProxy -and -not $ep) {
         $deadStreak++
-        if ($deadStreak -ge $deadLimit) {
+        if ($deadStreak -eq 2 -or $deadStreak -eq 6) {
+            Write-WatchLog 'tunnel dead -> restart xray'
+            & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
+        }
+        if ($deadStreak -ge 8 -and -not (Test-WorkModeEnabled)) {
             Write-WatchLog 'proxy set but tunnel dead -> disable'
             Disable-CursorTunnelProxy -Quiet
             $deadStreak = 0

@@ -128,14 +128,14 @@ Say ("Tunnel OK: {0} {1}://127.0.0.1:{2}" -f $mode.Label, $mode.Mode, $usePort) 
 
 # 2. Cursor settings (and optional WinINet system proxy).
 if ($SettingsOnly) {
-    if (Enable-CursorTunnelProxy -Quiet:$Quiet) {
+    if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
         Say ("Cursor settings -> {0}://127.0.0.1:{1} ({2}). Sistemnyj proksi ne trogayu." -f $mode.Mode, $usePort, $mode.Label) Green
     } else {
         Say 'Ne udalos vklyuchit proksi v Cursor.' Red
         exit 1
     }
 } else {
-    if (-not (Enable-CursorTunnelProxy -Quiet:$Quiet)) {
+    if (-not (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor)) {
         Say 'Ne udalos vklyuchit proksi v Cursor.' Red
         exit 1
     }
