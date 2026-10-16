@@ -84,6 +84,15 @@ if (Test-OtmenaPath $agentLog) {
     [void]$sb.AppendLine('(no cursor-agent.log)')
 }
 
+$tgLog = Join-Path $PSScriptRoot 'telegram-insert.log'
+[void]$sb.AppendLine('')
+[void]$sb.AppendLine('--- telegram-insert.log (last 20 lines) ---')
+if (Test-OtmenaPath $tgLog) {
+    Get-Content $tgLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { [void]$sb.AppendLine($_) }
+} else {
+    [void]$sb.AppendLine('(no telegram-insert.log)')
+}
+
 [void]$sb.AppendLine('')
 [void]$sb.AppendLine('--- launcher.log (last 40 lines) ---')
 $logFile = Join-Path $PSScriptRoot 'launcher.log'

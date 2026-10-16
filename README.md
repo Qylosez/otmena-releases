@@ -150,8 +150,10 @@ Otmena.exe /minimized
 - На рабочем ПК WinDivert часто **заблокирован** — это нормально, используй Telegram.
 - Нажми **Проверить** и посмотри журнал внизу.
 
-### «Не удалось добавить MTProto (код 2)»
-Telegram не принимает ссылки `tg://`. Установи Telegram Desktop с [desktop.telegram.org](https://desktop.telegram.org) и добавь прокси **вручную** (данные выше).
+### «Не удалось добавить MTProto (код 2)» / ключ не вставился
+Otmena ищет `Telegram.exe` сама: уже запущенный процесс, portable-копию, ярлык и обычную установку. Ссылку она передаёт целиком, даже если `tg://` занят Telegram из Microsoft Store. В журнале после **Запустить**, если ссылка не открылась, есть сервер, порт и secret — их и вводи вручную. Версия из Store ключ не принимает: нужен [Telegram Desktop](https://desktop.telegram.org).
+
+Если `proxy-dag.ru` с этой сети не открывается, в Telegram включи **SOCKS5** `127.0.0.1` порт `10808` (это vpn.dance). Запасной MTProto тогда не обязателен.
 
 ### Telegram красный, xray не стартует
 - Проверь, есть ли файл `telegram-vless\bin\xray.exe`.

@@ -420,10 +420,13 @@ function Start-ZapretFailover {
 
 function Start-TelegramFailover {
     Write-Info 'Telegram: vpn.dance + SOCKS + proxy-dag.ru...'
+    $script:TelegramKeyHint = ''
     $out = & (Join-Path $PSScriptRoot 'apply-telegram.ps1') -Quiet 2>&1 | Out-String
     $xray = $out -match 'XRAY=1'
     $socks = $out -match 'TG_SOCKS=1'
     $mt = $out -match 'TG_MTPROTO=1'
+    $tcp = $out -match 'MTPROTO_TCP=1'
+    $exeMissing = $out -match 'TG_EXE=missing'
 
     if ($xray -and (Test-WorkModeEnabled)) {
         . (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
@@ -443,6 +446,27 @@ function Start-TelegramFailover {
     if ($mt) { Write-Ok 'proxy-dag.ru dobavlen v Telegram' }
     else { Write-Warn 'proxy-dag.ru ne otkrylsya avtomatom' }
     if ($socks) { Write-Ok 'SOCKS dobavlen v Telegram' }
+
+    $hint = ''
+    if (-not $mt) {
+        $hint = 'proxy-dag.ru ne otkrylsya avtomatom'
+        if ($out -match 'MANUAL_SERVER=(\S+)') { $srv = $matches[1] } else { $srv = 'proxy-dag.ru' }
+        if ($out -match 'MANUAL_PORT=(\d+)') { $prt = $matches[1] } else { $prt = '443' }
+        if ($out -match 'MANUAL_SECRET=(\S+)') {
+            $hint = $hint + ('. Vruchnuyu MTProto: server {0} port {1} secret {2}' -f $srv, $prt, $matches[1])
+        }
+        if ($exeMissing) { $hint = $hint + '. Net Telegram.exe (versiya iz Store ne podhodit)' }
+    }
+    if (-not $tcp) {
+        $extra = 'proxy-dag.ru:443 s etoj seti ne otvechaet, vklyuchi SOCKS 127.0.0.1:10808'
+        if ($hint) { $hint = $hint + '. ' + $extra } else { $hint = $extra }
+    }
+    if (-not $socks -and $xray -and $out -match 'MANUAL_SOCKS=(\S+)') {
+        $extra = 'SOCKS vruchnuyu: ' + $matches[1]
+        if ($hint) { $hint = $hint + '. ' + $extra } else { $hint = $extra }
+    }
+    $script:TelegramKeyHint = $hint.Trim()
+
     if ($xray -or $mt -or $socks) { return $true }
     Write-Warn 'Telegram: vklyuchi Desktop i nazhmi Zapustit eshchyo raz'
     return $false
@@ -619,6 +643,7 @@ switch ($Action) {
         if (-not $deps.WlanApi -and -not $zapret) {
             Write-Warn 'wlanapi/WinDivert: Discord/YouTube mogut ne startovat. Telegram uzhe nastroen.'
         }
+        if ($script:TelegramKeyHint) { Write-Warn $script:TelegramKeyHint }
         if (-not $Quiet) {
             Show-Status
         }
