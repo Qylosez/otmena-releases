@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.149.255",
+            "address": "84.32.151.21",
             "port": 8443,
             "users": [
               {
-                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
+                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
                 "encryption": "none"
               }
             ]
@@ -85,10 +85,10 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yahooapis.com",
+          "serverName": "ads.x5.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "d7e1a111"
+          "shortId": ""
         },
         "grpcSettings": {
           "serviceName": "grpcservice",
@@ -102,11 +102,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.149.255",
+            "address": "84.32.151.21",
             "port": 443,
             "users": [
               {
-                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
+                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
                 "encryption": "none"
               }
             ]
@@ -117,10 +117,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yahooapis.com",
+          "serverName": "ads.x5.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "d7e1a111"
+          "shortId": "dde66ef1"
         }
       }
     },
@@ -130,11 +130,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.149.255",
+            "address": "84.32.151.21",
             "port": 8444,
             "users": [
               {
-                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
+                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
                 "encryption": "none"
               }
             ]
@@ -145,10 +145,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yahooapis.com",
+          "serverName": "ads.x5.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "6ba85179e30d4fc2"
+          "shortId": ""
         }
       }
     },
@@ -186,11 +186,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.149.255",
+            "address": "84.32.151.21",
             "port": 8447,
             "users": [
               {
-                "id": "0709747d-a7ce-441a-afaf-14f3ee30f8a0",
+                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
                 "encryption": "none"
               }
             ]
@@ -201,12 +201,12 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "wd522c7bd.devs.dance",
+          "serverName": "w4dd97fc6.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
-          "host": "wd522c7bd.devs.dance",
+          "host": "w4dd97fc6.devs.dance",
           "path": "/ws"
         }
       }
