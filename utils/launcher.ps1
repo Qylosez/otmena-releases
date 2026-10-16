@@ -444,7 +444,7 @@ function Start-TelegramFailover {
     if ($xray) { Write-Ok 'xray vpn.dance (SOCKS 127.0.0.1:10808)' }
     else { Write-Warn 'xray ne podnyalsya' }
     if ($mt) { Write-Ok 'proxy-dag.ru dobavlen v Telegram' }
-    else { Write-Warn 'proxy-dag.ru ne otkrylsya avtomatom' }
+    elseif ($out -notmatch 'MTPROTO_SKIP=dead') { Write-Warn 'proxy-dag.ru ne otkrylsya avtomatom' }
     if ($socks) { Write-Ok 'SOCKS dobavlen v Telegram' }
 
     $hint = ''
@@ -580,10 +580,12 @@ function Show-Status {
 }
 
 function Test-SecretNet {
-    try {
-        $services = (sc.exe query type= service state= all 2>$null | Out-String)
-        if ($services -match 'Secret|SnPolicy|SecretNet|SNPolicy') { return $true }
-    } catch {}
+    foreach ($name in @('SnPolicy', 'SecretNet', 'SNSession', 'snbs', 'SecretNetStudio', 'SNService')) {
+        try {
+            $out = (sc.exe query $name 2>&1 | Out-String)
+            if ($out -match 'SERVICE_NAME') { return $true }
+        } catch {}
+    }
     return $false
 }
 

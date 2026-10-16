@@ -83,9 +83,10 @@ Write-TelegramInsertLog ("probe {0}:{1} tcp={2} xray={3} exe={4}" -f $mtServer, 
 # app never reaches the working local SOCKS. Skip it when the port is closed.
 $mt = @{ Ok = $false; Text = '' }
 if ($xrayOk -and -not $mtTcp) {
+    # Do not disable the active Telegram proxy. That turns off every proxy,
+    # including the SOCKS the user just enabled, and the next link is easy to drop.
     Write-Output 'MTPROTO_SKIP=dead'
-    Write-TelegramInsertLog 'skip dead proxy-dag, disable it, socks only'
-    Open-TgUriSafe -Uri 'tg://proxy?disable=1' -Quiet -Kind 'proxy' | Out-Null
+    Write-TelegramInsertLog 'skip dead proxy-dag, socks only'
 } elseif (-not $xrayOk) {
     $pick = $null
     foreach ($p in (Get-OtmenaMtprotoList)) {
@@ -126,6 +127,7 @@ if ($xrayOk) {
     }
 }
 Write-Output ("TG_SOCKS={0}" -f $socksOk)
+Write-TelegramInsertLog ("socks result ok={0}" -f $socksOk)
 
 if (-not $Quiet) {
     if ($xrayOk -and $socksOk) {

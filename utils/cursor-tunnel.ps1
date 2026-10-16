@@ -32,11 +32,44 @@ function Test-XrayRunning {
     return [bool](Get-Process -Name xray -ErrorAction SilentlyContinue)
 }
 
+function Get-OtmenaProfileHomes {
+    $homes = New-Object System.Collections.Generic.List[string]
+    $raw = New-Object System.Collections.Generic.List[string]
+    if ($PSScriptRoot -match '(?i)^([A-Z]:\\Users\\[^\\]+)\\') { [void]$raw.Add($Matches[1]) }
+    if ($env:USERPROFILE) { [void]$raw.Add($env:USERPROFILE) }
+    if (Test-Path -LiteralPath 'C:\Users') {
+        Get-ChildItem -LiteralPath 'C:\Users' -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.Name -match '^(?i)(Public|Default|Default User|All Users|defaultuser0)$') { return }
+            [void]$raw.Add($_.FullName)
+        }
+    }
+    foreach ($home in $raw) {
+        if ([string]::IsNullOrWhiteSpace($home)) { continue }
+        $home = $home.TrimEnd('\')
+        $dup = $false
+        foreach ($e in $homes) { if ($e -ieq $home) { $dup = $true } }
+        if ($dup) { continue }
+        try {
+            if (Test-Path -LiteralPath $home) { [void]$homes.Add($home) }
+        } catch {}
+    }
+    return @($homes)
+}
+
 function Get-CursorSettingsPaths {
-    return @(
-        (Join-Path $env:APPDATA 'Cursor\User\settings.json'),
-        (Join-Path $env:APPDATA 'Cursor Nightly\User\settings.json')
-    )
+    $paths = New-Object System.Collections.Generic.List[string]
+    foreach ($home in (Get-OtmenaProfileHomes)) {
+        foreach ($name in @('Cursor', 'Cursor Nightly')) {
+            $settings = Join-Path $home "AppData\Roaming\$name\User\settings.json"
+            $userDir = Split-Path $settings -Parent
+            $installed = (Test-Path -LiteralPath $userDir) -or (Test-Path -LiteralPath (Join-Path $home 'AppData\Local\Programs\cursor\Cursor.exe')) -or (Test-Path -LiteralPath (Join-Path $home 'AppData\Local\Programs\Cursor\Cursor.exe'))
+            if ($installed) { [void]$paths.Add($settings) }
+        }
+    }
+    if ($paths.Count -eq 0 -and $env:APPDATA) {
+        [void]$paths.Add((Join-Path $env:APPDATA 'Cursor\User\settings.json'))
+    }
+    return @($paths)
 }
 
 function ConvertFrom-Jsonc([string]$raw) {

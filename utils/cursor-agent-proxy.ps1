@@ -9,6 +9,7 @@ param(
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
+. (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
 $logFile = Join-Path $PSScriptRoot 'cursor-agent.log'
 $backupPath = Join-Path $PSScriptRoot 'cursor-shortcuts.json'
 $exePathFile = Join-Path $PSScriptRoot 'cursor.exe.path'
@@ -46,11 +47,16 @@ function Find-CursorExe {
         $saved = (Get-Content -LiteralPath $exePathFile -Raw).Trim()
         if ($saved -and (Test-Path -LiteralPath $saved)) { return $saved }
     }
-    foreach ($cand in @(
+    $candidates = @(
         (Join-Path $env:LOCALAPPDATA 'Programs\cursor\Cursor.exe'),
         (Join-Path $env:LOCALAPPDATA 'Programs\Cursor\Cursor.exe'),
         (Join-Path $env:ProgramFiles 'Cursor\Cursor.exe')
-    )) {
+    )
+    foreach ($home in (Get-OtmenaProfileHomes)) {
+        $candidates += (Join-Path $home 'AppData\Local\Programs\cursor\Cursor.exe')
+        $candidates += (Join-Path $home 'AppData\Local\Programs\Cursor\Cursor.exe')
+    }
+    foreach ($cand in $candidates) {
         if ($cand -and (Test-Path -LiteralPath $cand)) { return $cand }
     }
     return $null
@@ -58,14 +64,20 @@ function Find-CursorExe {
 
 function Get-ShortcutDirs {
     $dirs = @()
-    foreach ($d in @(
+    $raw = @(
         [Environment]::GetFolderPath('Desktop'),
         [Environment]::GetFolderPath('Programs'),
         (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'),
         (Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'),
         (Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'),
         (Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned')
-    )) {
+    )
+    foreach ($home in (Get-OtmenaProfileHomes)) {
+        $raw += (Join-Path $home 'Desktop')
+        $raw += (Join-Path $home 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs')
+        $raw += (Join-Path $home 'AppData\Roaming\Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar')
+    }
+    foreach ($d in $raw) {
         if ($d -and (Test-Path -LiteralPath $d)) { $dirs += $d }
     }
     return $dirs
@@ -239,12 +251,17 @@ $links = Update-CursorShortcuts $exe
 Write-AgentLog "shortcuts=$links exe=$exe"
 
 $patched = $false
-foreach ($name in @('Cursor', 'Cursor Nightly')) {
-    $db = Join-Path $env:APPDATA "$name\User\globalStorage\state.vscdb"
-    if (Test-Path -LiteralPath $db) {
-        if (Invoke-CursorStateSql $db) { $patched = $true }
-    } else {
-        Write-AgentLog "no state db $db"
+foreach ($home in (Get-OtmenaProfileHomes)) {
+    foreach ($name in @('Cursor', 'Cursor Nightly')) {
+        $db = Join-Path $home "AppData\Roaming\$name\User\globalStorage\state.vscdb"
+        $userDir = Join-Path $home "AppData\Roaming\$name\User"
+        $localExe = Join-Path $home 'AppData\Local\Programs\cursor\Cursor.exe'
+        if (-not (Test-Path -LiteralPath $userDir) -and -not (Test-Path -LiteralPath $localExe)) { continue }
+        if (Test-Path -LiteralPath $db) {
+            if (Invoke-CursorStateSql $db) { $patched = $true }
+        } else {
+            Write-AgentLog "no state db $db"
+        }
     }
 }
 Write-AgentLog ("CURSOR_AGENT=" + $(if ($patched) { 'patched' } else { 'skip' }))

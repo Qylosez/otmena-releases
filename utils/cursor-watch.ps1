@@ -27,9 +27,15 @@ while ($true) {
     $expected = Get-CursorProxyUrl
 
     if ($hasProxy -and $expected -and $settingsProxy -and ($settingsProxy -ne $expected)) {
-        Write-WatchLog ("settings mismatch -> repair ($settingsProxy -> $expected)")
-        Enable-CursorTunnelProxy -Quiet | Out-Null
-        $deadStreak = 0
+        $keepHttp = ($settingsProxy -match '127\.0\.0\.1:10809') -and (Test-PortListen 10809)
+        if ($keepHttp) {
+            Write-WatchLog ("settings keep http 10809, ignore $expected")
+            $deadStreak = 0
+        } else {
+            Write-WatchLog ("settings mismatch -> repair ($settingsProxy -> $expected)")
+            Enable-CursorTunnelProxy -Quiet | Out-Null
+            $deadStreak = 0
+        }
     }
     elseif ($hasProxy -and -not $ep) {
         $deadStreak++
