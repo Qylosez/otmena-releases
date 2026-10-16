@@ -79,11 +79,33 @@ $mtTcp = [int](Test-RemoteTcp $mtServer $mtPort)
 Write-Output ("MTPROTO_TCP={0}" -f $mtTcp)
 Write-TelegramInsertLog ("probe {0}:{1} tcp={2} xray={3} exe={4}" -f $mtServer, $mtPort, $mtTcp, $xrayOk, $(if ($exeList.Count) { $exeList[0] } else { 'missing' }))
 
-# MTProto first so a cold start carries proxy-dag.ru inside the first process.
-# SOCKS goes second: Telegram keeps the last enabled proxy, and that one is the local vpn.dance tunnel.
-$mt = Invoke-TelegramInsertScript -Script (Join-Path $PSScriptRoot 'set-telegram-mtproto.ps1') -ArgList @('-Quiet')
+# A dead proxy-dag.ru link becomes the proxy Telegram actually uses, so the
+# app never reaches the working local SOCKS. Skip it when the port is closed.
+$mt = @{ Ok = $false; Text = '' }
+if ($xrayOk -and -not $mtTcp) {
+    Write-Output 'MTPROTO_SKIP=dead'
+    Write-TelegramInsertLog 'skip dead proxy-dag, disable it, socks only'
+    Open-TgUriSafe -Uri 'tg://proxy?disable=1' -Quiet -Kind 'proxy' | Out-Null
+} elseif (-not $xrayOk) {
+    $pick = $null
+    foreach ($p in (Get-OtmenaMtprotoList)) {
+        $pServer = [string]$p.server
+        $pSecret = [string]$p.secret
+        $pPort = 443
+        if ($p.port) { $pPort = [int]$p.port }
+        if (-not $pServer -or -not $pSecret) { continue }
+        if (Test-RemoteTcp $pServer $pPort) { $pick = $p; break }
+    }
+    if ($pick) {
+        $mt = Invoke-TelegramInsertScript -Script (Join-Path $PSScriptRoot 'set-telegram-mtproto.ps1') -ArgList @(
+            '-Quiet', '-Server', [string]$pick.server, '-Port', ([string][int]$pick.port), '-Secret', [string]$pick.secret
+        )
+    }
+} else {
+    $mt = Invoke-TelegramInsertScript -Script (Join-Path $PSScriptRoot 'set-telegram-mtproto.ps1') -ArgList @('-Quiet')
+}
 Write-Output ("TG_MTPROTO={0}" -f [int]$mt.Ok)
-if (-not $mt.Ok) {
+if (-not $mt.Ok -and $mt.Text) {
     foreach ($line in ($mt.Text -split "`r?`n")) {
         $trim = $line.Trim()
         if ($trim -match '^(MANUAL|MANUAL_SERVER|MANUAL_PORT|MANUAL_SECRET)=') {

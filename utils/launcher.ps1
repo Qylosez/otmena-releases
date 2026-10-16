@@ -448,7 +448,10 @@ function Start-TelegramFailover {
     if ($socks) { Write-Ok 'SOCKS dobavlen v Telegram' }
 
     $hint = ''
-    if (-not $mt) {
+    $skipped = $out -match 'MTPROTO_SKIP=dead'
+    if ($skipped -and $xray) {
+        $hint = 'proxy-dag.ru s etoj seti zakryt. V Telegram vyklyuchi ego i vklyuchi tolko SOCKS 127.0.0.1:10808'
+    } elseif (-not $mt) {
         $hint = 'proxy-dag.ru ne otkrylsya avtomatom'
         if ($out -match 'MANUAL_SERVER=(\S+)') { $srv = $matches[1] } else { $srv = 'proxy-dag.ru' }
         if ($out -match 'MANUAL_PORT=(\d+)') { $prt = $matches[1] } else { $prt = '443' }
@@ -457,7 +460,7 @@ function Start-TelegramFailover {
         }
         if ($exeMissing) { $hint = $hint + '. Net Telegram.exe (versiya iz Store ne podhodit)' }
     }
-    if (-not $tcp) {
+    if (-not $tcp -and -not $skipped) {
         $extra = 'proxy-dag.ru:443 s etoj seti ne otvechaet, vklyuchi SOCKS 127.0.0.1:10808'
         if ($hint) { $hint = $hint + '. ' + $extra } else { $hint = $extra }
     }

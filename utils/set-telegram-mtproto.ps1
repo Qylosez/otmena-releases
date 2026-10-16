@@ -1,20 +1,30 @@
 #Requires -Version 3.0
-param([switch]$Quiet)
+param(
+    [switch]$Quiet,
+    [string]$Server,
+    [string]$Secret,
+    [int]$Port = 0
+)
 
 $ErrorActionPreference = 'SilentlyContinue'
 . (Join-Path $PSScriptRoot 'telegram-uri.ps1')
 
-$configFile = Join-Path $PSScriptRoot 'telegram-mtproto.json'
-if (-not (Test-Path -LiteralPath $configFile)) {
-    Write-Output 'ERROR=config missing'
-    Write-Output 'STATUS=manual'
-    exit 1
-}
+$server = [string]$Server
+$port = [int]$Port
+$secret = [string]$Secret
 
-$config = Get-Content -LiteralPath $configFile -Raw | ConvertFrom-Json
-$server = [string]$config.server
-$port = [int]$config.port
-$secret = [string]$config.secret
+if (-not $server -or -not $port -or -not $secret) {
+    $configFile = Join-Path $PSScriptRoot 'telegram-mtproto.json'
+    if (-not (Test-Path -LiteralPath $configFile)) {
+        Write-Output 'ERROR=config missing'
+        Write-Output 'STATUS=manual'
+        exit 1
+    }
+    $config = Get-Content -LiteralPath $configFile -Raw | ConvertFrom-Json
+    if (-not $server) { $server = [string]$config.server }
+    if (-not $port) { $port = [int]$config.port }
+    if (-not $secret) { $secret = [string]$config.secret }
+}
 
 if (-not $server -or -not $port -or -not $secret) {
     Write-Output 'ERROR=invalid config'

@@ -153,7 +153,7 @@ Otmena.exe /minimized
 ### «Не удалось добавить MTProto (код 2)» / ключ не вставился
 Otmena ищет `Telegram.exe` сама: уже запущенный процесс, portable-копию, ярлык и обычную установку. Ссылку она передаёт целиком, даже если `tg://` занят Telegram из Microsoft Store. В журнале после **Запустить**, если ссылка не открылась, есть сервер, порт и secret — их и вводи вручную. Версия из Store ключ не принимает: нужен [Telegram Desktop](https://desktop.telegram.org).
 
-Если `proxy-dag.ru` с этой сети не открывается, в Telegram включи **SOCKS5** `127.0.0.1` порт `10808` (это vpn.dance). Либо впиши другой MTProto из списка выше. Кнопка **Настроить SOCKS в Telegram** открывает окно со всеми четырьмя, после **Запустить** они же есть в журнале. Файл `utils\telegram-mtproto-manual.txt` лежит в папке Otmena.
+Если `proxy-dag.ru` с этой сети не открывается, Otmena больше не включает его: из-за него Telegram сидит на мёртвом прокси и молчит, хотя xray уже работает. В Telegram выключи `proxy-dag.ru` и включи **только SOCKS5** `127.0.0.1` порт `10808`. Кнопка **Настроить SOCKS в Telegram** открывает окно с запасными MTProto, после **Запустить** они же есть в журнале. Файл `utils\telegram-mtproto-manual.txt` лежит в папке Otmena.
 
 ### Telegram красный, xray не стартует
 - Проверь, есть ли файл `telegram-vless\bin\xray.exe`.

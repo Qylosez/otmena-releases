@@ -94,6 +94,24 @@ function Get-TelegramDesktopCandidates {
         } catch {}
     }
 
+    $remembered = Join-Path $PSScriptRoot 'telegram.exe.path'
+    if (Test-Path -LiteralPath $remembered) {
+        $prev = Get-Content -LiteralPath $remembered -TotalCount 1 -ErrorAction SilentlyContinue
+        Add-TelegramCandidate $list ([string]$prev)
+    }
+    if ($PSScriptRoot -match '(?i)^([A-Z]:\\Users\\[^\\]+)\\') {
+        $ownerHome = $Matches[1]
+        Add-TelegramCandidate $list (Join-Path $ownerHome 'AppData\Roaming\Telegram Desktop\Telegram.exe')
+        Add-TelegramCandidate $list (Join-Path $ownerHome 'AppData\Local\Telegram Desktop\Telegram.exe')
+    }
+    if (Test-OtmenaPath 'C:\Users') {
+        Get-ChildItem -LiteralPath 'C:\Users' -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.Name -match '^(?i)(Public|Default|Default User|All Users)$') { return }
+            Add-TelegramCandidate $list (Join-Path $_.FullName 'AppData\Roaming\Telegram Desktop\Telegram.exe')
+            Add-TelegramCandidate $list (Join-Path $_.FullName 'AppData\Local\Telegram Desktop\Telegram.exe')
+        }
+    }
+
     $dirs = @()
     if ($env:APPDATA) { $dirs += (Join-Path $env:APPDATA 'Telegram Desktop') }
     if ($env:LOCALAPPDATA) { $dirs += (Join-Path $env:LOCALAPPDATA 'Telegram Desktop') }
@@ -149,7 +167,13 @@ function Get-TelegramDesktopCandidates {
     }
     $desktop = @($existing | Where-Object { $_ -notmatch '\\WindowsApps\\' })
     $store = @($existing | Where-Object { $_ -match '\\WindowsApps\\' })
-    return @($desktop + $store)
+    $pick = @($desktop + $store)
+    if ($pick.Count -gt 0) {
+        try {
+            Set-Content -LiteralPath (Join-Path $PSScriptRoot 'telegram.exe.path') -Value $pick[0] -Encoding ASCII
+        } catch {}
+    }
+    return $pick
 }
 
 function Test-TgUriHandler {
@@ -283,26 +307,40 @@ function Open-TgUriSafe {
 }
 
 function Get-OtmenaMtprotoList {
+    # PowerShell 5.1 collapses a JSON array into one value and prints
+    # System.Object[] instead of the server. Read each object as text.
     $path = Join-Path $PSScriptRoot 'telegram-mtproto-list.json'
-    if (-not (Test-Path -LiteralPath $path)) { return @() }
-    try {
-        return @(Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json)
-    } catch {
-        return @()
+    if (-not (Test-Path -LiteralPath $path)) { return }
+    $text = ''
+    try { $text = [System.IO.File]::ReadAllText($path) } catch { return }
+    $rx = [regex]'\{[^{}]*\}'
+    foreach ($m in $rx.Matches($text)) {
+        $block = [string]$m.Value
+        if ($block -notmatch '"server"\s*:\s*"([^"]+)"') { continue }
+        $server = [string]$Matches[1]
+        $port = 443
+        if ($block -match '"port"\s*:\s*(\d+)') { $port = [int]$Matches[1] }
+        if ($block -notmatch '"secret"\s*:\s*"([^"]+)"') { continue }
+        $secret = [string]$Matches[1]
+        if (-not $server -or -not $secret) { continue }
+        Write-Output ([PSCustomObject]@{ server = $server; port = $port; secret = $secret })
     }
 }
 
 function Get-OtmenaMtprotoManualLines {
-    $lines = @()
+    $lines = New-Object System.Collections.Generic.List[string]
     $n = 1
-    foreach ($p in @(Get-OtmenaMtprotoList)) {
-        if (-not $p.server -or -not $p.secret) { continue }
+    foreach ($p in (Get-OtmenaMtprotoList)) {
+        $server = [string]$p.server
+        $secret = [string]$p.secret
+        if (-not $server -or -not $secret) { continue }
+        if ($server -eq 'System.Object[]' -or $secret -eq 'System.Object[]') { continue }
         $port = 443
         if ($p.port) { $port = [int]$p.port }
-        $lines += ('{0}) {1}:{2} secret {3}' -f $n, $p.server, $port, $p.secret)
+        [void]$lines.Add(('{0}) {1}:{2} secret {3}' -f $n, $server, $port, $secret))
         $n++
     }
-    return @($lines)
+    foreach ($line in $lines) { Write-Output $line }
 }
 
 function Show-OtmenaMtprotoList {
