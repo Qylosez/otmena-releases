@@ -1,69 +1,148 @@
 #Requires -Version 3.0
-# Point Cursor desktop at the local encrypted tunnel (xray HTTP inbound -> Poland Reality).
-# This makes Cursor (UI + all models) go out through Europe, encrypted, instead of
-# straight through MTS where TSPU/RKN can throttle or block AI backends.
-#
-#   .\cursor-proxy.ps1            # enable  (http://127.0.0.1:10809)
-#   .\cursor-proxy.ps1 -Disable   # remove the proxy from Cursor settings
-#
-# Cursor stores user settings at %APPDATA%\Cursor\User\settings.json (JSONC).
+# Point Cursor desktop at the local encrypted tunnel (xray -> vpn.dance).
 param(
-    [int]$Port = 10809,
+    [ValidateSet('socks', 'http')]
+    [string]$Mode = 'socks',
+    [int]$Port = 0,
+    [string]$Label = 'manual',
     [switch]$Disable,
-    [switch]$Quiet
+    [switch]$Quiet,
+    [switch]$RestartCursor
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
+
+. (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
 
 function Write-Note($msg, $color = 'Gray') {
     if (-not $Quiet) { Write-Host $msg -ForegroundColor $color }
 }
 
-$proxyUrl = "http://127.0.0.1:$Port"
-$settingsPath = Join-Path $env:APPDATA 'Cursor\User\settings.json'
-$settingsDir = Split-Path $settingsPath -Parent
-
-if (-not (Test-Path $settingsDir)) {
-    Write-Note "Cursor ne ustanovlen (net $settingsDir) - propuskayu." Yellow
-    exit 0
+function Set-JsonMapFile([string]$path, [scriptblock]$edit, [switch]$Create) {
+    $dir = Split-Path $path -Parent
+    if (-not (Test-Path $dir)) {
+        if (-not $Create) { return $false }
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    $map = [ordered]@{}
+    if (Test-Path $path) {
+        $raw = Get-Content $path -Raw -ErrorAction SilentlyContinue
+        $obj = ConvertFrom-Jsonc $raw
+        if ($obj) {
+            foreach ($p in $obj.PSObject.Properties) { $map[$p.Name] = $p.Value }
+        } elseif ($raw -and $raw.Trim()) {
+            return $false
+        }
+        $backup = "$path.otmena.bak"
+        if (-not (Test-Path $backup)) {
+            Copy-Item $path $backup -Force -ErrorAction SilentlyContinue
+        }
+    } elseif (-not $Create) {
+        return $false
+    }
+    & $edit $map | Out-Null
+    $json = $map | ConvertTo-Json -Depth 20
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($path, $json, $utf8)
+    return $true
 }
 
-# Load existing settings (strip // and /* */ comments so JSONC parses).
-$settings = $null
-if (Test-Path $settingsPath) {
-    $raw = Get-Content $settingsPath -Raw -ErrorAction SilentlyContinue
-    if ($raw -and $raw.Trim()) {
-        $noBlock = [System.Text.RegularExpressions.Regex]::Replace($raw, '/\*.*?\*/', '', 'Singleline')
-        $noLine = [System.Text.RegularExpressions.Regex]::Replace($noBlock, '(^|\s)//.*$', '$1', 'Multiline')
-        try { $settings = $noLine | ConvertFrom-Json -ErrorAction Stop } catch { $settings = $null }
-    }
-    # One-time backup before we rewrite the file.
-    $backup = "$settingsPath.otmena.bak"
-    if (-not (Test-Path $backup)) {
-        Copy-Item $settingsPath $backup -Force -ErrorAction SilentlyContinue
-    }
+if (-not $Port) {
+    $Port = if ($Mode -eq 'socks') { 10808 } else { 10809 }
 }
 
-# Normalise into an ordered hashtable we can edit predictably.
-$map = [ordered]@{}
-if ($settings) {
-    foreach ($p in $settings.PSObject.Properties) { $map[$p.Name] = $p.Value }
+$proxyUrl = if ($Mode -eq 'socks') {
+    "socks5://127.0.0.1:$Port"
+} else {
+    "http://127.0.0.1:$Port"
+}
+
+$settingsPaths = @(
+    (Join-Path $env:APPDATA 'Cursor\User\settings.json'),
+    (Join-Path $env:APPDATA 'Cursor Nightly\User\settings.json')
+)
+
+$wrote = $false
+foreach ($settingsPath in $settingsPaths) {
+    $ok = Set-JsonMapFile $settingsPath -Create:($settingsPath -like '*\Cursor\User\settings.json') -edit {
+        param($map)
+        if ($Disable) {
+            foreach ($k in @('http.proxy', 'http.proxySupport', 'http.noProxy', 'http.proxyStrictSSL', 'http.electronFetch', 'cursor.general.disableHttp2')) {
+                if ($map.Contains($k)) { $map.Remove($k) }
+            }
+        } else {
+            $map['http.proxy'] = $proxyUrl
+            $map['http.proxySupport'] = 'override'
+            $map['http.noProxy'] = 'localhost,127.0.0.1,::1,*.ru,*.su,*.xn--p1ai,*.yandex.com,*.yandex.net,*.yastatic.net,*.vk.com,*.sberbank.com'
+            $map['http.proxyStrictSSL'] = $false
+            $map['http.electronFetch'] = $true
+            $map['cursor.general.disableHttp2'] = $true
+        }
+    }
+    if ($ok) { $wrote = $true }
+}
+
+$argvPath = Join-Path $env:USERPROFILE '.cursor\argv.json'
+if ($Disable) {
+    Set-JsonMapFile $argvPath -edit {
+        param($map)
+        foreach ($k in @('proxy-server', 'disable-http2')) {
+            if ($map.Contains($k)) { $map.Remove($k) }
+        }
+    } | Out-Null
+} elseif ($wrote) {
+    Set-JsonMapFile $argvPath -Create -edit {
+        param($map)
+        $map['proxy-server'] = $proxyUrl
+        $map['disable-http2'] = $true
+    } | Out-Null
+}
+
+function Set-CursorProcessProxy([string]$url, [switch]$Clear) {
+    $reg = 'HKCU:\Environment'
+    $names = @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'NO_PROXY', 'no_proxy', 'NODE_USE_ENV_PROXY')
+    if ($Clear) {
+        foreach ($name in $names) {
+            $cur = [string](Get-ItemProperty -Path $reg -Name $name -ErrorAction SilentlyContinue).$name
+            $ours = $cur -match '127\.0\.0\.1:108(08|09|10)' -or ($name -eq 'NODE_USE_ENV_PROXY' -and $cur -eq '1') -or (($name -eq 'NO_PROXY' -or $name -eq 'no_proxy') -and $cur -match 'xn--p1ai')
+            if ($ours) {
+                Remove-ItemProperty -Path $reg -Name $name -ErrorAction SilentlyContinue
+            }
+        }
+    } else {
+        foreach ($name in @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy')) {
+            Set-ItemProperty -Path $reg -Name $name -Value $url -Type String -Force
+        }
+        $bypass = 'localhost,127.0.0.1,::1,.ru,.su,.xn--p1ai'
+        Set-ItemProperty -Path $reg -Name NO_PROXY -Value $bypass -Type String -Force
+        Set-ItemProperty -Path $reg -Name no_proxy -Value $bypass -Type String -Force
+        Set-ItemProperty -Path $reg -Name NODE_USE_ENV_PROXY -Value '1' -Type String -Force
+    }
+    try {
+        $sig = @'
+[DllImport("user32.dll", CharSet = CharSet.Unicode)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, int msg, IntPtr wParam, string lParam, int flags, int timeout, out IntPtr result);
+'@
+        if (-not ('Otmena.EnvBroadcast' -as [type])) {
+            Add-Type -MemberDefinition $sig -Name 'EnvBroadcast' -Namespace 'Otmena' | Out-Null
+        }
+        $result = [IntPtr]::Zero
+        [Otmena.EnvBroadcast]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [IntPtr]::Zero, 'Environment', 2, 2000, [ref]$result) | Out-Null
+    } catch {}
 }
 
 if ($Disable) {
-    foreach ($k in @('http.proxy', 'http.proxySupport')) {
-        if ($map.Contains($k)) { $map.Remove($k) }
-    }
+    Set-CursorProcessProxy -Clear
+    & (Join-Path $PSScriptRoot 'cursor-agent-proxy.ps1') -Clear -Quiet:$Quiet
     Write-Note 'Cursor proxy otklyuchyon (pryamoe soedinenie).' Yellow
+    Set-CursorProxyState -enabledByOtmena:$false -Mode 'none'
+} elseif ($wrote) {
+    Set-CursorProcessProxy -url $proxyUrl
+    & (Join-Path $PSScriptRoot 'cursor-agent-proxy.ps1') -ProxyUrl $proxyUrl -Restart:$RestartCursor -Quiet:$Quiet
+    Write-Note "Cursor -> $proxyUrl ($Label). Esli okno bylo otkryto, Otmena perezapuskaet ego." Green
+    Set-CursorProxyState -enabledByOtmena:$true -Mode $Mode -Port $Port -Label $Label -MarkOk
 } else {
-    $map['http.proxy'] = $proxyUrl
-    $map['http.proxySupport'] = 'on'
-    Write-Note "Cursor -> $proxyUrl (shifrovannyj tunnel, vyhod Polsha)." Green
+    Write-Note 'Cursor settings.json ne najden - zapusti Cursor odin raz, potom Otmena snova.' Yellow
+    exit 1
 }
-
-$json = $map | ConvertTo-Json -Depth 20
-$utf8 = New-Object System.Text.UTF8Encoding $false
-[System.IO.File]::WriteAllText($settingsPath, $json, $utf8)
-
-Write-Note 'Perezapusti Cursor, chtoby proksi primenilsya.' Cyan
 exit 0

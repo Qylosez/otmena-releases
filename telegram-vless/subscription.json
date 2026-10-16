@@ -1,0 +1,10 @@
+{
+  "url": "https://key.vpn.dance/connect?key=a99adf937ffa7b9957ee",
+  "prefer": [
+    "grpc",
+    "tcp",
+    "ws"
+  ],
+  "probeUrl": "https://api2.cursor.sh",
+  "notes": "vpn.dance VLESS Lithuania 84.32.151.21 (Reality SNI ads.x5.ru, until 23.10.2026). gRPC 8443 sid empty, TCP 443 sid dde66ef1, TCP 8444 sid empty, WS-TLS 8447 w4dd97fc6.devs.dance, auto 217.60.25.145. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
+}

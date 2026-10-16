@@ -1,3 +1,12 @@
-Otmena build 1.0.8
-Date: 2026-06-01 14:33:30
-Includes: MTProto LiteralPath fix, auto xray install, GitHub updates, UTF8 logs
+Otmena build 1.1.43
+Date: 2026-10-16
+Zapret: Flowseal/zapret-discord-youtube 1.10.1
+WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
+VLESS: vpn.dance Lithuania 84.32.151.21 (Reality SNI ads.x5.ru, until 23.10.2026)
+Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
+Cursor: relaunch with HTTP_PROXY on the process and shortcut, so the agent cannot ignore 127.0.0.1:10809
+Telegram: insert proxy-dag.ru and SOCKS via Telegram.exe even when tg:// is taken by the Store app
+Telegram spare MTProto list for manual entry: data.mtproxy.cc, mtpvideo.my, 138.124.127.179
+Telegram: if proxy-dag.ru:443 is closed, leave it alone and add SOCKS 127.0.0.1:10808. Do not send a disable command
+Closed network: when the tunnel is up and public MTProto is blocked, the journal says SOCKS only and does not list spare proxies
+Cursor: look up Cursor.exe and settings in the Otmena folder's Windows profile, not only the task account
