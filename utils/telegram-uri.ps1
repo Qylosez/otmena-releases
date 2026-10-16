@@ -281,3 +281,41 @@ function Open-TgUriSafe {
     }
     return $false
 }
+
+function Get-OtmenaMtprotoList {
+    $path = Join-Path $PSScriptRoot 'telegram-mtproto-list.json'
+    if (-not (Test-Path -LiteralPath $path)) { return @() }
+    try {
+        return @(Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json)
+    } catch {
+        return @()
+    }
+}
+
+function Get-OtmenaMtprotoManualLines {
+    $lines = @()
+    $n = 1
+    foreach ($p in @(Get-OtmenaMtprotoList)) {
+        if (-not $p.server -or -not $p.secret) { continue }
+        $port = 443
+        if ($p.port) { $port = [int]$p.port }
+        $lines += ('{0}) {1}:{2} secret {3}' -f $n, $p.server, $port, $p.secret)
+        $n++
+    }
+    return @($lines)
+}
+
+function Show-OtmenaMtprotoList {
+    $shower = Join-Path $PSScriptRoot 'show-telegram-mtproto-list.ps1'
+    if (-not (Test-Path -LiteralPath $shower)) { return }
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = 'powershell.exe'
+        $psi.Arguments = '-NoProfile -STA -ExecutionPolicy Bypass -File "' + $shower + '"'
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        [void][System.Diagnostics.Process]::Start($psi)
+    } catch {
+        Write-TelegramInsertLog ("mtproto list window: {0}" -f $_.Exception.Message)
+    }
+}

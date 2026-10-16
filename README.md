@@ -111,11 +111,11 @@ Otmena.exe /minimized
 1. Включи **Work mode** (кнопка в разделе «Система»).
 2. Нажми **Запустить**.
 3. Если **Discord / YouTube** красный — на этом ПК они, скорее всего, недоступны. Используй **только Telegram**.
-4. **MTProto вручную** в Telegram:
-   - Настройки → Данные и память → Использование прокси → MTProto
-   - Сервер: `proxy-dag.ru`
-   - Порт: `443`
-   - Secret: `ee94fc2b484af6e1e1c87e6576b33c257579612e7275`
+4. **MTProto вручную** в Telegram (Настройки → Данные и память → Использование прокси → MTProto). Если `proxy-dag.ru` не подключается, впиши любой следующий. Включи один.
+   - `proxy-dag.ru` порт `443`, secret `ee94fc2b484af6e1e1c87e6576b33c257579612e7275`
+   - `data.mtproxy.cc` порт `443`, secret `eeef7017f26c9ecb71ed8d7609992943186d2e6265626f6f2e7275`
+   - `mtpvideo.my` порт `443`, secret `ee616cf892574b078aab3f73e63b8b7df4786170692e6f7a6f6e2e7275`
+   - `138.124.127.179` порт `443`, secret `eef3c8fea5c83c9c837e5e292b2025afd8766b2e636f6d`
 5. Если **xray** не качается (GitHub заблокирован) — скачай [Xray-core](https://github.com/XTLS/Xray-core/releases) на другом ПК и положи `xray.exe` в папку `telegram-vless\bin\`.
 
 ---
@@ -153,7 +153,7 @@ Otmena.exe /minimized
 ### «Не удалось добавить MTProto (код 2)» / ключ не вставился
 Otmena ищет `Telegram.exe` сама: уже запущенный процесс, portable-копию, ярлык и обычную установку. Ссылку она передаёт целиком, даже если `tg://` занят Telegram из Microsoft Store. В журнале после **Запустить**, если ссылка не открылась, есть сервер, порт и secret — их и вводи вручную. Версия из Store ключ не принимает: нужен [Telegram Desktop](https://desktop.telegram.org).
 
-Если `proxy-dag.ru` с этой сети не открывается, в Telegram включи **SOCKS5** `127.0.0.1` порт `10808` (это vpn.dance). Запасной MTProto тогда не обязателен.
+Если `proxy-dag.ru` с этой сети не открывается, в Telegram включи **SOCKS5** `127.0.0.1` порт `10808` (это vpn.dance). Либо впиши другой MTProto из списка выше. Кнопка **Настроить SOCKS в Telegram** открывает окно со всеми четырьмя, после **Запустить** они же есть в журнале. Файл `utils\telegram-mtproto-manual.txt` лежит в папке Otmena.
 
 ### Telegram красный, xray не стартует
 - Проверь, есть ли файл `telegram-vless\bin\xray.exe`.

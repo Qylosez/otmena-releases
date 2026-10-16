@@ -1,4 +1,4 @@
-Otmena build 1.1.38
+Otmena build 1.1.39
 Date: 2026-10-16
 Zapret: Flowseal/zapret-discord-youtube 1.10.1
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
@@ -6,3 +6,4 @@ VLESS: vpn.dance Lithuania 84.32.149.255 (Reality SNI yahooapis.com, until 23.10
 Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
 Cursor: relaunch with HTTP_PROXY on the process and shortcut, so the agent cannot ignore 127.0.0.1:10809
 Telegram: insert proxy-dag.ru and SOCKS via Telegram.exe even when tg:// is taken by the Store app
+Telegram spare MTProto list for manual entry: data.mtproxy.cc, mtpvideo.my, 138.124.127.179

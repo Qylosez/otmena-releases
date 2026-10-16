@@ -421,7 +421,7 @@ function Start-ZapretFailover {
 function Start-TelegramFailover {
     Write-Info 'Telegram: vpn.dance + SOCKS + proxy-dag.ru...'
     $script:TelegramKeyHint = ''
-    $out = & (Join-Path $PSScriptRoot 'apply-telegram.ps1') -Quiet 2>&1 | Out-String
+    $out = & (Join-Path $PSScriptRoot 'apply-telegram.ps1') -Quiet -NoList 2>&1 | Out-String
     $xray = $out -match 'XRAY=1'
     $socks = $out -match 'TG_SOCKS=1'
     $mt = $out -match 'TG_MTPROTO=1'
@@ -644,6 +644,12 @@ switch ($Action) {
             Write-Warn 'wlanapi/WinDivert: Discord/YouTube mogut ne startovat. Telegram uzhe nastroen.'
         }
         if ($script:TelegramKeyHint) { Write-Warn $script:TelegramKeyHint }
+        . (Join-Path $PSScriptRoot 'telegram-uri.ps1')
+        $spare = @(Get-OtmenaMtprotoManualLines)
+        if ($spare.Count -gt 0) {
+            Write-Warn 'Esli proxy-dag.ru ne podklyuchilsya, dobav vruchnuyu lyuboj MTProto:'
+            foreach ($line in $spare) { Write-Warn $line }
+        }
         if (-not $Quiet) {
             Show-Status
         }

@@ -2,7 +2,8 @@
 # One shot: vpn.dance xray + SOCKS in Telegram + proxy-dag.ru backup.
 param(
     [switch]$Quiet,
-    [switch]$SkipXray
+    [switch]$SkipXray,
+    [switch]$NoList
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -112,6 +113,10 @@ if (-not $Quiet) {
     } else {
         Write-Host 'Telegram: otkroj Desktop i nazhmi knopku eshchyo raz, ili vvedi proxy vruchnuyu' -ForegroundColor Yellow
     }
+}
+
+if (-not $NoList) {
+    Show-OtmenaMtprotoList
 }
 
 if ($xrayOk -or $mt.Ok -or $socksOk) { exit 0 }
