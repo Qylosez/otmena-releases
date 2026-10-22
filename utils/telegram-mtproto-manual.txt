@@ -1,0 +1,15 @@
+﻿Запасные MTProto, если proxy-dag.ru не подключается.
+Telegram: Настройки -> Данные и память -> Использование прокси -> Добавить -> MTProto.
+Включи один. Остальные можно не включать.
+
+1) proxy-dag.ru:443
+   secret ee94fc2b484af6e1e1c87e6576b33c257579612e7275
+
+2) data.mtproxy.cc:443
+   secret eeef7017f26c9ecb71ed8d7609992943186d2e6265626f6f2e7275
+
+3) mtpvideo.my:443
+   secret ee616cf892574b078aab3f73e63b8b7df4786170692e6f7a6f6e2e7275
+
+4) 138.124.127.179:443
+   secret eef3c8fea5c83c9c837e5e292b2025afd8766b2e636f6d

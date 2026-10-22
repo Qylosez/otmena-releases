@@ -96,7 +96,7 @@ $btnAutoOn = New-Button 'Avtozapusk VKL' 20 285 160 ([Drawing.Color]::FromArgb(4
 $btnAutoOff = New-Button 'Avtozapusk VYKL' 190 285 160 ([Drawing.Color]::FromArgb(45, 50, 62)) ([Drawing.Color]::White)
 $btnAdmin = New-Button 'Ot admina' 210 260 160 ([Drawing.Color]::FromArgb(70, 75, 90)) ([Drawing.Color]::White)
 $btnClean = New-Button 'Vykl vse' 380 260 140 ([Drawing.Color]::FromArgb(120, 80, 30)) ([Drawing.Color]::White)
-$btnMtproto = New-Button 'MTProto v TG' 20 310 160 ([Drawing.Color]::FromArgb(55, 110, 190)) ([Drawing.Color]::White)
+$btnMtproto = New-Button 'SOCKS v TG' 20 310 160 ([Drawing.Color]::FromArgb(55, 110, 190)) ([Drawing.Color]::White)
 $btnDelete = New-Button 'UDALIT papku' 190 310 330 ([Drawing.Color]::FromArgb(140, 40, 40)) ([Drawing.Color]::White)
 $btnDelete.Height = 36
 
@@ -247,9 +247,9 @@ $btnClean.Add_Click({
 })
 
 $btnMtproto.Add_Click({
-    Append-Log $log 'Dobavlyayu MTProto proxy-dag.ru v Telegram...' ([Drawing.Color]::Cyan)
-    & (Join-Path $utilsDir 'set-telegram-mtproto.ps1')
-    Append-Log $log 'Esli Telegram otkrylsya - najmi Enable/Vklyuchit' ([Drawing.Color]::Green)
+    Append-Log $log 'Nastrojka SOCKS 127.0.0.1:10808 v Telegram...' ([Drawing.Color]::Cyan)
+    & (Join-Path $utilsDir 'set-telegram-socks.ps1')
+    Append-Log $log 'Vklyuchi SOCKS 127.0.0.1:10808 i udali proxy-dag.ru.' ([Drawing.Color]::Green)
 })
 
 $btnDelete.Add_Click({

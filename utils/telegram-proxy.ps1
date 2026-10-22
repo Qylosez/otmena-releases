@@ -99,7 +99,10 @@ function Get-ProxyScore($p) {
 
 function Invoke-ProxyLink([string]$uri) {
     Write-Color "  -> $uri" Green
-    Start-Process $uri
+    . (Join-Path $PSScriptRoot 'telegram-uri.ps1')
+    if (-not (Open-TgUriSafe -Uri $uri -Kind 'mtproto')) {
+        Write-Color '  Telegram.exe ne prinyal ssylku. Skopiruj eyo v nastroyki vruchnuyu.' Yellow
+    }
 }
 
 function Show-MtsHelp {

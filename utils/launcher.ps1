@@ -12,6 +12,7 @@ $script:LastResults = @()
 
 . (Join-Path $PSScriptRoot 'work-mode.ps1')
 . (Join-Path $PSScriptRoot 'otmena-common.ps1')
+. (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
 
 function Write-Log([string]$msg) {
     $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"
@@ -88,6 +89,54 @@ function Stop-Winws {
     Start-Sleep -Seconds 1
 }
 
+function Sync-WinwsArgs {
+    $sync = Join-Path $PSScriptRoot 'sync-service-args.ps1'
+    if (-not (Test-Path $sync)) { return $false }
+    try {
+        & $sync 2>$null | Out-Null
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Test-CanRestartWinws {
+    if (Test-IsAdmin) { return $true }
+    if (Get-ScheduledTask -TaskName 'Otmena-Winws' -ErrorAction SilentlyContinue) { return $true }
+    return $false
+}
+
+function Start-WinwsViaCmd {
+    param([string]$RootDir)
+    $bat = Join-Path $RootDir 'scripts\general (ALT11).bat'
+    if (-not (Test-Path $bat)) { return $false }
+    try {
+        $p = Start-Process -FilePath 'cmd.exe' `
+            -ArgumentList @('/c', "`"$bat`"") `
+            -WorkingDirectory $RootDir `
+            -WindowStyle Hidden `
+            -PassThru
+        Start-Sleep -Seconds 3
+        return (Test-WinwsRunning)
+    } catch {
+        return $false
+    }
+}
+
+function Start-WinwsViaTask {
+    $taskName = 'Otmena-Winws'
+    if (-not (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue)) {
+        return $false
+    }
+    try {
+        schtasks /Run /TN $taskName 2>$null | Out-Null
+        Start-Sleep -Seconds 3
+        return (Test-WinwsRunning)
+    } catch {
+        return $false
+    }
+}
+
 function Stop-Xray {
     $pidFile = Join-Path $rootDir 'telegram-vless\xray.pid'
     if (Test-Path $pidFile) {
@@ -133,15 +182,17 @@ function Get-ZapretStatusObject {
         $taskAuto = [bool](Get-ScheduledTask -TaskName 'Zapret-Start' -ErrorAction SilentlyContinue)
     }
     $startupAuto = Test-StartupAutostart
+    $runAuto = Test-OtmenaRunAutostart
     $autoType = 'none'
     if ($taskAuto) { $autoType = 'task' }
     elseif ($startupAuto) { $autoType = 'startup' }
+    elseif ($runAuto) { $autoType = 'run' }
     return [PSCustomObject]@{
         ZapretRunning = Test-WinwsRunning
         TelegramRunning = ($tgPort -or $tgProc)
         WorkMode = Test-WorkMode
         IsAdmin = Test-IsAdmin
-        AutostartInstalled = ($taskAuto -or $startupAuto)
+        AutostartInstalled = ($taskAuto -or $startupAuto -or $runAuto)
         AutostartType = $autoType
     }
 }
@@ -171,42 +222,61 @@ function Get-ZapretSteps {
     }
 
     $steps += @{
-        Name = 'Process general (ALT11).bat'
-        Group = 'Zapret'
-        Try  = {
-            $bat = Join-Path $rootDir 'scripts\general (ALT11).bat'
-            if (-not (Test-Path $bat)) {
-                return @{ Success = $false; Detail = 'net fajla general (ALT11).bat' }
-            }
-            Start-Process cmd.exe -ArgumentList "/c `"$bat`"" -WorkingDirectory $rootDir -WindowStyle Hidden
-            Start-Sleep -Seconds 5
-            if (Test-WinwsRunning) {
-                return @{ Success = $true; Detail = 'winws.exe zapushchen' }
-            }
-            return @{ Success = $false; Detail = 'winws ne poyavilsya (Secret Net / net prav admina?)' }
-        }
-    }
-
-    $steps += @{
         Name = 'Pryamoj zapusk winws.exe'
         Group = 'Zapret'
         Try  = {
+            Sync-WinwsArgs | Out-Null
             $argsFile = Join-Path $PSScriptRoot 'alt11-service-args.txt'
             $winws = Join-Path $rootDir 'bin\winws.exe'
             if (-not (Test-Path $winws)) {
                 return @{ Success = $false; Detail = 'net bin\winws.exe' }
             }
-            if (-not (Test-Path $argsFile)) {
-                & (Join-Path $PSScriptRoot 'sync-service-args.ps1') 2>$null | Out-Null
-            }
+            Ensure-WlanApiDll $rootDir | Out-Null
             if (-not (Test-Path $argsFile)) {
                 return @{ Success = $false; Detail = 'net argumentov zapuska' }
             }
-            $raw = (Get-Content $argsFile -Raw).Trim().Trim('"')
-            Start-Process -FilePath $winws -ArgumentList $raw -WorkingDirectory (Join-Path $rootDir 'bin') -WindowStyle Hidden
-            Start-Sleep -Seconds 5
-            if (Test-WinwsRunning) {
-                return @{ Success = $true; Detail = 'winws.exe napryamuyu' }
+            $raw = (Get-Content -LiteralPath $argsFile -Raw -ErrorAction SilentlyContinue)
+            if (-not $raw) {
+                return @{ Success = $false; Detail = 'pustye argumenty zapuska' }
+            }
+            $raw = $raw.Trim().Trim('"').Trim()
+            if (Test-IsAdmin) {
+                Reset-WinDivertService
+                $staged = Install-WinDivertRuntime -RootDir $rootDir
+                $exeToRun = if ($staged) { $staged } else { $winws }
+                $wd = Split-Path -Parent $exeToRun
+                $proc = Start-OtmenaNativeProcess -FilePath $exeToRun -Arguments $raw -WorkingDirectory $wd
+                Start-Sleep -Seconds 3
+                if (Test-WinwsRunning) {
+                    $where = if ($staged) { 'WinDivert 2.2.2 iz C:\ProgramData\Otmena\bin' } else { 'winws.exe napryamuyu' }
+                    return @{ Success = $true; Detail = $where }
+                }
+                $code = ''
+                if ($proc -and $proc.HasExited) { $code = [string]$proc.ExitCode }
+                if ($code -eq '1275') {
+                    return @{ Success = $false; Detail = 'WinDivert zablokirovan politikoj (kod 1275). Antivirus ili Secure Boot.' }
+                }
+                if ($code -eq '577') {
+                    return @{ Success = $false; Detail = 'WinDivert: podpis drajvera otklonen (kod 577).' }
+                }
+                if ($code -eq '5') {
+                    return @{ Success = $false; Detail = 'WinDivert: net prav (kod 5), hotya process ot administratora.' }
+                }
+                if ($code) {
+                    return @{ Success = $false; Detail = ("WinDivert ne podnyalsya, kod " + $code) }
+                }
+            }
+            if (Start-WinwsViaTask) {
+                return @{ Success = $true; Detail = 'winws.exe cherez zadachu Otmena-Winws' }
+            }
+            if (Start-WinwsViaCmd -RootDir $rootDir) {
+                return @{ Success = $true; Detail = 'winws.exe cherez ALT11.bat' }
+            }
+            if (-not (Test-IsAdmin)) {
+                return @{ Success = $false; Detail = 'nuzhny prava admina - zapusti ZAPRET-ADMIN.bat' }
+            }
+            if (-not (Test-Path (Join-Path $env:WINDIR 'System32\wlanapi.dll')) -and -not (Test-Path (Join-Path $rootDir 'bin\wlanapi.dll'))) {
+                return @{ Success = $false; Detail = 'net wlanapi.dll (Windows bez Wi-Fi / Server). Telegram rabotaet.' }
             }
             return @{ Success = $false; Detail = 'drajver WinDivert zablokirovan?' }
         }
@@ -221,16 +291,24 @@ function Get-TelegramSteps {
 
     if (Test-XrayAvailable) {
         $steps += @{
-            Name = 'VLESS (xray, tvoj klyuch)'
+            Name = 'VLESS (xray, vpn.dance)'
             Group = 'Telegram'
             Try  = {
-                & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
-                Start-Sleep -Seconds 2
-                if (Test-PortListen $socksPort) {
-                    & (Join-Path $PSScriptRoot 'set-telegram-socks.ps1') -Quiet 2>$null | Out-Null
-                    return @{ Success = $true; Detail = "SOCKS 127.0.0.1:$socksPort" }
+                $out = & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet 2>&1 | Out-String
+                $up = $false
+                for ($i = 0; $i -lt 12; $i++) {
+                    if (Test-PortListen $socksPort) { $up = $true; break }
+                    Start-Sleep -Milliseconds 500
                 }
-                return @{ Success = $false; Detail = 'xray ne podnyalsya' }
+                if ($up) {
+                    & (Join-Path $PSScriptRoot 'set-telegram-socks.ps1') -Quiet 2>$null | Out-Null
+                    $mode = 'SOCKS 127.0.0.1:' + $socksPort
+                    if ($out -match 'XRAY_STATUS=([^\r\n]+)') { $mode += (' / ' + $matches[1]) }
+                    return @{ Success = $true; Detail = $mode }
+                }
+                $why = 'xray ne podnyalsya'
+                if ($out -match 'XRAY_STATUS=([^\r\n]+)') { $why += (' (' + $matches[1] + ')') }
+                return @{ Success = $false; Detail = $why }
             }
         }
     } else {
@@ -301,9 +379,24 @@ function Invoke-ZapretStep {
 }
 
 function Start-ZapretFailover {
-    if (Test-WinwsRunning) {
-        Write-Ok 'Zapret uzhe rabotaet (winws.exe)'
+    if (-not (Test-WlanApiPresent)) {
+        Enable-WorkMode
+        Write-Warn 'Windows bez Wi-Fi steka - work mode, wlanapi stub dlya winws'
+    }
+    Ensure-WlanApiDll $rootDir | Out-Null
+    Sync-WinwsArgs | Out-Null
+
+    $wasRunning = Test-WinwsRunning
+    $canRestart = Test-CanRestartWinws
+
+    if ($wasRunning -and -not $canRestart) {
+        Write-Warn 'winws uzhe rabotaet, net prav na perezapusk - ostavlyaem kak est'
         return $true
+    }
+
+    if ($wasRunning) {
+        Write-Info 'Perezapusk zapret (winws) na strategiyu 1.10.1...'
+        Stop-Winws
     }
 
     & (Join-Path $PSScriptRoot 'disable-system-proxy.ps1')
@@ -319,29 +412,68 @@ function Start-ZapretFailover {
     }
 
     Write-Fail 'Zapret' 'vse sposoby ne srabotali'
+    if (-not (Test-IsAdmin)) {
+        Write-Warn 'YouTube/Discord: zapusti ZAPRET-ADMIN.bat ot imeni administratora'
+    }
     return $false
 }
 
 function Start-TelegramFailover {
-    $socksPort = 10808
+    Write-Info 'Telegram: vpn.dance + SOCKS + proxy-dag.ru...'
+    $script:TelegramKeyHint = ''
+    $script:TelegramClosedNet = $false
+    $out = & (Join-Path $PSScriptRoot 'apply-telegram.ps1') -Quiet -NoList 2>&1 | Out-String
+    $xray = $out -match 'XRAY=1'
+    $socks = $out -match 'TG_SOCKS=1'
+    $mt = $out -match 'TG_MTPROTO=1'
+    $tcp = $out -match 'MTPROTO_TCP=1'
+    $exeMissing = $out -match 'TG_EXE=missing'
 
-    if (Test-PortListen $socksPort) {
-        Write-Ok "Telegram SOCKS uzhe rabotaet (127.0.0.1:$socksPort)"
-        & (Join-Path $PSScriptRoot 'set-telegram-socks.ps1') -Quiet 2>$null | Out-Null
-        return $true
-    }
-
-    foreach ($step in (Get-TelegramSteps)) {
-        if (Invoke-ZapretStep -Name $step.Name -Group $step.Group -Try $step.Try) {
-            return $true
+    if ($xray -and (Test-WorkModeEnabled)) {
+        . (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
+        if (-not (Test-EndpointLive -Mode http -Port 10809)) {
+            Write-Info 'Poisk rabochego profilya vpn.dance...'
+            $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet 2>&1 | Out-String
+            if ($probe -match 'WORKING=1') {
+                Write-Ok 'vpn.dance: najden rabochij profil'
+            } else {
+                Write-Warn 'vpn.dance: net rabochego profilya na etoj seti (hotspot?)'
+            }
         }
     }
 
-    if (Test-XrayAvailable) {
-        Write-Warn 'Telegram: vruchnuyu vklyuchi SOCKS 127.0.0.1:10808'
-    } else {
-        Write-Warn 'Telegram: otkroi Otmena -> knopka MTProto -> skopiruj server/port/secret'
+    if ($xray) { Write-Ok 'xray vpn.dance (SOCKS 127.0.0.1:10808)' }
+    else { Write-Warn 'xray ne podnyalsya' }
+    if ($mt) { Write-Ok 'proxy-dag.ru dobavlen v Telegram' }
+    elseif ($out -notmatch 'MTPROTO_SKIP=dead') { Write-Warn 'proxy-dag.ru ne otkrylsya avtomatom' }
+    if ($socks) { Write-Ok 'SOCKS dobavlen v Telegram' }
+
+    $hint = ''
+    $skipped = $out -match 'MTPROTO_SKIP=dead'
+    if ($skipped -and $xray) {
+        $script:TelegramClosedNet = $true
+        $hint = 'Set rezhet pryamyye MTProto (proxy-dag i zapasnye). V Telegram ostav tolko SOCKS 127.0.0.1:10808'
+    } elseif (-not $mt) {
+        $hint = 'proxy-dag.ru ne otkrylsya avtomatom'
+        if ($out -match 'MANUAL_SERVER=(\S+)') { $srv = $matches[1] } else { $srv = 'proxy-dag.ru' }
+        if ($out -match 'MANUAL_PORT=(\d+)') { $prt = $matches[1] } else { $prt = '443' }
+        if ($out -match 'MANUAL_SECRET=(\S+)') {
+            $hint = $hint + ('. Vruchnuyu MTProto: server {0} port {1} secret {2}' -f $srv, $prt, $matches[1])
+        }
+        if ($exeMissing) { $hint = $hint + '. Net Telegram.exe (versiya iz Store ne podhodit)' }
     }
+    if (-not $tcp -and -not $skipped) {
+        $extra = 'proxy-dag.ru:443 s etoj seti ne otvechaet, vklyuchi SOCKS 127.0.0.1:10808'
+        if ($hint) { $hint = $hint + '. ' + $extra } else { $hint = $extra }
+    }
+    if (-not $socks -and $xray -and $out -match 'MANUAL_SOCKS=(\S+)') {
+        $extra = 'SOCKS vruchnuyu: ' + $matches[1]
+        if ($hint) { $hint = $hint + '. ' + $extra } else { $hint = $extra }
+    }
+    $script:TelegramKeyHint = $hint.Trim()
+
+    if ($xray -or $mt -or $socks) { return $true }
+    Write-Warn 'Telegram: vklyuchi Desktop i nazhmi Zapustit eshchyo raz'
     return $false
 }
 
@@ -437,20 +569,63 @@ function Show-Status {
     } else {
         Write-Host '  Avtozapusk:      VYKL' -ForegroundColor Gray
     }
+    $ep = Get-CursorTunnelEndpoint
+    $px = Test-CursorProxyEnabled
+    if ($ep -and $px) {
+        Write-Host ("  Cursor Europe:   RABOTAET ({0} {1})" -f $ep.Label, $ep.Port) -ForegroundColor Green
+    } elseif ($ep) {
+        Write-Host '  Cursor Europe:   tunnel zhiv, proksi ne zapisalsya' -ForegroundColor Yellow
+    } else {
+        Write-Host '  Cursor Europe:   NE RABOTAET' -ForegroundColor Red
+    }
     Write-Host ''
 }
 
 function Test-SecretNet {
-    try {
-        $services = (sc.exe query type= service state= all 2>$null | Out-String)
-        if ($services -match 'Secret|SnPolicy|SecretNet|SNPolicy') { return $true }
-    } catch {}
+    foreach ($name in @('SnPolicy', 'SecretNet', 'SNSession', 'snbs', 'SecretNetStudio', 'SNService')) {
+        try {
+            $out = (sc.exe query $name 2>&1 | Out-String)
+            if ($out -match 'SERVICE_NAME') { return $true }
+        } catch {}
+    }
+    return $false
+}
+
+function Start-CursorEurope {
+    Write-Info 'Cursor Europe: poisk zhivogo tunnel + proksi...'
+    if (-not (Get-CursorTunnelEndpoint)) {
+        Write-Info 'Poisk rabochego profilya vpn.dance...'
+        $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet 2>&1 | Out-String
+        if ($probe -match 'WORKING=1') {
+            Write-Ok 'vpn.dance: najden rabochij profil'
+        } else {
+            Write-Warn 'vpn.dance: net rabochego profilya na etoj seti'
+        }
+    }
+    if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
+        return $true
+    }
+    Disable-CursorTunnelProxy -Quiet | Out-Null
     return $false
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
 switch ($Action) {
     'start' {
+        if (-not (Test-OtmenaNetworkUp)) {
+            Write-Info 'Zhdu set, chtoby obnovit klyuch vpn.dance...'
+            Wait-OtmenaNetwork -Seconds 35 | Out-Null
+        }
+        $autoFlag = Join-Path $PSScriptRoot 'autostart.on'
+        if (Test-Path -LiteralPath $autoFlag) {
+            $already = Get-ZapretStatusObject
+            if (-not $already.AutostartInstalled) {
+                & (Join-Path $PSScriptRoot 'ensure-autostart.ps1') -Quiet | Out-Null
+            } else {
+                Enable-OtmenaStartupApproved -Folder 'StartupFolder' -Name 'Otmena.lnk'
+                Enable-OtmenaStartupApproved -Folder 'Run' -Name 'Otmena'
+            }
+        }
         if (-not $Quiet) {
             Write-Host ''
             Write-Host '=== Zapret: avto-perekljuchenie ===' -ForegroundColor White
@@ -461,31 +636,39 @@ switch ($Action) {
             Write-Warn 'Secret Net obnaruzhen - rabochij rezhim (bez sluzhby Windows)'
         }
         Ensure-XrayInstalled | Out-Null
-        $zapret = Start-ZapretFailover
-        & (Join-Path $PSScriptRoot 'update-cursor-exclude.ps1') 2>$null | Out-Null
+        $deps = Ensure-OtmenaNativeDeps $rootDir
         $telegram = Start-TelegramFailover
-        # Route Cursor (UI + all models) through the encrypted Poland tunnel.
-        # Only when the local xray HTTP inbound is actually up, so we never
-        # point Cursor at a dead proxy and cut it off from the internet.
-        if (Test-PortListen 10809) {
-            Write-Info 'Cursor cherez shifrovannyj tunnel (vyhod Polsha)...'
-            & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Quiet:$Quiet 2>$null | Out-Null
-            Write-Ok 'Cursor -> 127.0.0.1:10809 (Europe). Perezapusti Cursor.'
+        $zapret = Start-ZapretFailover
+        $cursor = Start-CursorEurope
+        if ($cursor) {
+            $ep = Get-CursorTunnelEndpoint
+            $url = if ($ep.Mode -eq 'socks') { "socks5://127.0.0.1:$($ep.Port)" } else { "http://127.0.0.1:$($ep.Port)" }
+            Write-Ok ("Cursor Europe -> {0} ({1}). Cursor perezapuschen s proksi." -f $url, $ep.Label)
         } else {
-            Write-Warn 'Tunnel (10809) ne podnyalsya - Cursor ostayotsya napryamuyu.'
+            Write-Warn 'Cursor Europe: tunnel ne otvechaet, proksi ne stavlyu (inache reconnect loop).'
+        }
+        if (-not $deps.WlanApi -and -not $zapret) {
+            Write-Warn 'wlanapi/WinDivert: Discord/YouTube mogut ne startovat. Telegram uzhe nastroen.'
+        }
+        if ($script:TelegramKeyHint) { Write-Warn $script:TelegramKeyHint }
+        if (-not $script:TelegramClosedNet) {
+            . (Join-Path $PSScriptRoot 'telegram-uri.ps1')
+            $spare = @(Get-OtmenaMtprotoManualLines)
+            if ($spare.Count -gt 0) {
+                Write-Warn 'Esli proxy-dag.ru ne podklyuchilsya, dobav vruchnuyu lyuboj MTProto:'
+                foreach ($line in $spare) { Write-Warn $line }
+            }
         }
         if (-not $Quiet) {
             Show-Status
-            if (-not $zapret) {
-                Write-Host 'Esli Secret Net blokiruet drajver - ostanetsya tolko Telegram cherez VLESS.' -ForegroundColor Yellow
-            }
         }
-        if ($zapret -or $telegram) { exit 0 }
+        if ($zapret -or $telegram -or $cursor) { exit 0 }
         exit 1
     }
     'stop' {
         Write-Info 'Ostanovka...'
-        & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Disable -Quiet:$Quiet 2>$null | Out-Null
+        Stop-CursorWatch
+        Disable-CursorTunnelProxy -Quiet:$Quiet
         Stop-Winws
         Stop-TelegramLocal
         & (Join-Path $PSScriptRoot 'disable-system-proxy.ps1')
