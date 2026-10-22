@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.151.21",
+            "address": "84.32.109.86",
             "port": 8443,
             "users": [
               {
-                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
+                "id": "d7c9cca3-4006-4977-b9e9-3b1d1b995804",
                 "encryption": "none"
               }
             ]
@@ -85,10 +85,10 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "ads.x5.ru",
+          "serverName": "yahoo.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": ""
+          "shortId": "dde66ef1"
         },
         "grpcSettings": {
           "serviceName": "grpcservice",
@@ -102,11 +102,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.151.21",
+            "address": "84.32.109.86",
             "port": 443,
             "users": [
               {
-                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
+                "id": "d7c9cca3-4006-4977-b9e9-3b1d1b995804",
                 "encryption": "none"
               }
             ]
@@ -117,10 +117,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "ads.x5.ru",
+          "serverName": "yahoo.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "dde66ef1"
+          "shortId": "189cfa69"
         }
       }
     },
@@ -130,11 +130,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "84.32.151.21",
+            "address": "84.32.109.86",
             "port": 8444,
             "users": [
               {
-                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
+                "id": "d7c9cca3-4006-4977-b9e9-3b1d1b995804",
                 "encryption": "none"
               }
             ]
@@ -145,52 +145,24 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "ads.x5.ru",
+          "serverName": "yahoo.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": ""
+          "shortId": "189cfa69"
         }
       }
     },
     {
-      "tag": "proxy-tcp-3",
+      "tag": "proxy-ws-2",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
-            "address": "217.60.25.145",
-            "port": 443,
-            "users": [
-              {
-                "id": "140a3105-4436-4692-9326-3e49ac9bdec9",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "intezio4.vpn.dance",
-          "fingerprint": "qq",
-          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "3decb73e"
-        }
-      }
-    },
-    {
-      "tag": "proxy-ws",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "84.32.151.21",
+            "address": "81.90.28.55",
             "port": 8447,
             "users": [
               {
-                "id": "90ebde3b-06af-4dfb-9b79-924534871ba5",
+                "id": "8bafcc25-816d-4726-8261-9c64bc4f5f86",
                 "encryption": "none"
               }
             ]
@@ -201,12 +173,43 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "w4dd97fc6.devs.dance",
+          "serverName": "w5ac73415.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
-          "host": "w4dd97fc6.devs.dance",
+          "host": "w5ac73415.devs.dance",
+          "path": "/ws"
+        }
+      }
+    },
+    {
+      "tag": "proxy-ws",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "84.32.109.86",
+            "port": 8447,
+            "users": [
+              {
+                "id": "d7c9cca3-4006-4977-b9e9-3b1d1b995804",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "w5c28989f.devs.dance",
+          "allowInsecure": false,
+          "fingerprint": "qq"
+        },
+        "wsSettings": {
+          "host": "w5c28989f.devs.dance",
           "path": "/ws"
         }
       }
@@ -229,7 +232,7 @@
           "proxy-grpc",
           "proxy-tcp",
           "proxy-tcp-2",
-          "proxy-tcp-3",
+          "proxy-ws-2",
           "proxy-ws"
         ],
         "fallbackTag": "proxy-grpc",
@@ -325,7 +328,7 @@
       "proxy-grpc",
       "proxy-tcp",
       "proxy-tcp-2",
-      "proxy-tcp-3",
+      "proxy-ws-2",
       "proxy-ws"
     ],
     "probeUrl": "https://api2.cursor.sh",
