@@ -432,13 +432,7 @@ function Start-TelegramFailover {
     if ($xray -and (Test-WorkModeEnabled)) {
         . (Join-Path $PSScriptRoot 'cursor-tunnel.ps1')
         if (-not (Test-EndpointLive -Mode http -Port 10809)) {
-            Write-Info 'Poisk rabochego profilya vpn.dance...'
-            $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet 2>&1 | Out-String
-            if ($probe -match 'WORKING=1') {
-                Write-Ok 'vpn.dance: najden rabochij profil'
-            } else {
-                Write-Warn 'vpn.dance: net rabochego profilya na etoj seti (hotspot?)'
-            }
+            Write-Warn 'vpn.dance: http 10809 poka ne otvechaet, Cursor proverit eshchyo raz'
         }
     }
 
@@ -604,6 +598,10 @@ function Start-CursorEurope {
     }
     if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
         return $true
+    }
+    if (Test-PortListen 10809) {
+        & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Mode http -Port 10809 -Label 'cursor-http' -Quiet:$Quiet -RestartCursor 2>$null | Out-Null
+        if ($LASTEXITCODE -eq 0) { return $true }
     }
     Disable-CursorTunnelProxy -Quiet | Out-Null
     return $false

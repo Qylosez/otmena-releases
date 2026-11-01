@@ -2,7 +2,7 @@
 # Brute-force: find vpn.dance profile that reaches api2.cursor.sh through local xray.
 param(
     [switch]$Quiet,
-    [int]$TimeoutSec = 10
+    [int]$TimeoutSec = 4
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -45,12 +45,9 @@ function Stop-Xray {
 
 function Test-CurlVia([string]$mode, [int]$port) {
     if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { return $false }
-    $args = if ($mode -eq 'socks') { @('--socks5-hostname', "127.0.0.1:$port") } else { @('-x', "http://127.0.0.1:$port") }
-    foreach ($url in @('https://api2.cursor.sh', 'https://www.gstatic.com/generate_204')) {
-        $code = & curl.exe -s -o NUL -w '%{http_code}' @args $url --connect-timeout $TimeoutSec --max-time ($TimeoutSec + 3) 2>$null
-        if ($code -match '^(200|204|301|302|307|308)$') { return $true }
-    }
-    return $false
+    $proxyArgs = if ($mode -eq 'socks') { @('--socks5-hostname', "127.0.0.1:$port") } else { @('-x', "http://127.0.0.1:$port") }
+    $code = & curl.exe -s -o NUL -w '%{http_code}' @proxyArgs 'https://api2.cursor.sh' --connect-timeout $TimeoutSec --max-time ($TimeoutSec + 2) 2>$null
+    return ($code -match '^(200|204|301|302|307|308)$')
 }
 
 function Start-XrayWait {
@@ -90,6 +87,17 @@ if ($count -le 0) {
 
 Write-ProbeLog "probe $count profiles"
 
+$fullConfig = Join-Path $vlessDir 'config.probe-backup.json'
+Copy-Item -LiteralPath $configFile -Destination $fullConfig -Force
+Stop-Xray
+if ((Start-XrayWait) -and (Test-CurlVia 'http' 10809)) {
+    Write-Output 'VLESS_PROFILE=full'
+    Write-Output 'VLESS_MODE=http'
+    Write-Output 'WORKING=1'
+    Write-ProbeLog 'full config already live'
+    exit 0
+}
+
 $winnerIdx = -1
 $winnerMode = 'socks'
 $winnerLabel = ''
@@ -111,18 +119,20 @@ for ($i = 0; $i -lt $count; $i++) {
         Write-ProbeLog '  OK http 10809'
         break
     }
-    if (Test-CurlVia 'socks' 10808) {
-        $winnerIdx = $i; $winnerMode = 'socks'; $winnerLabel = $label
-        Write-ProbeLog '  OK socks 10808'
-        break
-    }
     Write-ProbeLog '  fail'
 }
 
 if ($winnerIdx -lt 0) {
+    if (Test-Path -LiteralPath $fullConfig) {
+        Copy-Item -LiteralPath $fullConfig -Destination $configFile -Force
+    } else {
+        & $syncScript -Quiet 2>$null | Out-Null
+    }
+    Stop-Xray
+    Start-XrayWait | Out-Null
     Write-Output 'VLESS_PROBE=none'
     Write-Output 'WORKING=0'
-    Write-ProbeLog 'NO WORKING PROFILE — VPN blocked on this network? Use phone hotspot.'
+    Write-ProbeLog 'NO WORKING PROFILE — restored full config'
     exit 1
 }
 

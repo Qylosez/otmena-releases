@@ -1,9 +1,9 @@
 {
   "url": "https://key.vpn.dance/connect?key=a99adf937ffa7b9957ee",
   "prefer": [
-    "grpc",
     "tcp",
-    "ws"
+    "ws",
+    "grpc"
   ],
   "probeUrl": "https://api2.cursor.sh",
   "notes": "vpn.dance VLESS Lithuania 5.199.173.52 (Reality SNI play.google.com, until 23.11.2026). gRPC 8443 sid 189cfa69, TCP 443 sid 6ba85179e30d4fc2, TCP 8444 sid 189cfa69, WS-TLS 8447 wfb500355.devs.dance, auto Switzerland 83.228.209.227 TCP 8444 deepl.com. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."

@@ -232,7 +232,7 @@
           "proxy-tcp-3",
           "proxy-ws"
         ],
-        "fallbackTag": "proxy-grpc",
+        "fallbackTag": "proxy-tcp",
         "strategy": {
           "type": "leastPing"
         }

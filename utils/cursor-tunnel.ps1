@@ -139,7 +139,7 @@ function Test-EndpointLive {
     }
 
     # A blocked or empty answer must not paint the Cursor tile green.
-    $code = Invoke-CurlCode -Url 'https://api2.cursor.sh' -ProxyArg $proxyArg -TimeoutSec 8
+    $code = Invoke-CurlCode -Url 'https://api2.cursor.sh' -ProxyArg $proxyArg -TimeoutSec 4
     if ($Mode -eq 'http') { $script:CursorProbeHttp = [string]$code } else { $script:CursorProbeSocks = [string]$code }
     if ($code -match '^(200|204|301|302|307|308)$') { return $true }
     return $false
