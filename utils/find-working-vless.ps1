@@ -62,7 +62,6 @@ function Start-XrayWait {
 }
 
 function Get-ProfileCount {
-    & $syncScript -Quiet 2>$null | Out-Null
     if (-not (Test-Path $metaFile)) { return 0 }
     try {
         $m = Get-Content $metaFile -Raw | ConvertFrom-Json
@@ -78,7 +77,7 @@ if (-not (Test-Path $xrayExe)) {
     exit 1
 }
 
-& $syncScript -Quiet 2>$null | Out-Null
+& $syncScript -Quiet -Offline 2>$null | Out-Null
 $count = Get-ProfileCount
 if ($count -le 0) {
     Write-Output 'VLESS_PROBE=no-profiles'
@@ -89,67 +88,87 @@ Write-ProbeLog "probe $count profiles"
 
 $fullConfig = Join-Path $vlessDir 'config.probe-backup.json'
 Copy-Item -LiteralPath $configFile -Destination $fullConfig -Force
-Stop-Xray
-if ((Start-XrayWait) -and (Test-CurlVia 'http' 10809)) {
-    Write-Output 'VLESS_PROFILE=full'
-    Write-Output 'VLESS_MODE=http'
-    Write-Output 'WORKING=1'
-    Write-ProbeLog 'full config already live'
-    exit 0
-}
-
+$deadline = (Get-Date).AddSeconds(20)
 $winnerIdx = -1
 $winnerMode = 'socks'
 $winnerLabel = ''
 
-for ($i = 0; $i -lt $count; $i++) {
-    & $syncScript -Quiet -ProfileIndex $i 2>$null | Out-Null
-    if (-not (Test-Path $configFile)) { continue }
-    $meta = $null
-    try { $meta = Get-Content $metaFile -Raw | ConvertFrom-Json } catch {}
-    $label = if ($meta -and $meta.profiles) { $meta.profiles[0] } else { "idx=$i" }
-    Write-ProbeLog "try $label"
+try {
+    Stop-Xray
+    if ((Start-XrayWait) -and (Test-CurlVia 'http' 10809)) {
+        Write-Output 'VLESS_PROFILE=full'
+        Write-Output 'VLESS_MODE=http'
+        Write-Output 'WORKING=1'
+        Write-ProbeLog 'full config already live'
+        exit 0
+    }
+
+    for ($i = 0; $i -lt $count; $i++) {
+        if ((Get-Date) -gt $deadline) {
+            Write-ProbeLog 'deadline, stop scanning'
+            break
+        }
+        & $syncScript -Quiet -Offline -ProfileIndex $i 2>$null | Out-Null
+        if (-not (Test-Path $configFile)) { continue }
+        $meta = $null
+        try { $meta = Get-Content $metaFile -Raw | ConvertFrom-Json } catch {}
+        $label = if ($meta -and $meta.profiles) { $meta.profiles[0] } else { "idx=$i" }
+        Write-ProbeLog "try $label"
+        Stop-Xray
+        if (-not (Start-XrayWait)) {
+            Write-ProbeLog '  xray not up'
+            continue
+        }
+        if (Test-CurlVia 'http' 10809) {
+            $winnerIdx = $i; $winnerMode = 'http'; $winnerLabel = $label
+            Write-ProbeLog '  OK http 10809'
+            break
+        }
+        Write-ProbeLog '  fail'
+    }
+
+    if ($winnerIdx -lt 0) {
+        if (Test-Path -LiteralPath $fullConfig) {
+            Copy-Item -LiteralPath $fullConfig -Destination $configFile -Force
+        } else {
+            & $syncScript -Quiet -Offline 2>$null | Out-Null
+        }
+        Stop-Xray
+        Start-XrayWait | Out-Null
+        Write-Output 'VLESS_PROBE=none'
+        Write-Output 'WORKING=0'
+        Write-ProbeLog 'NO WORKING PROFILE — restored full config'
+        exit 1
+    }
+
+    & $syncScript -Quiet -Offline -ProfileIndex $winnerIdx 2>$null | Out-Null
     Stop-Xray
     if (-not (Start-XrayWait)) {
-        Write-ProbeLog '  xray not up'
-        continue
+        Write-Output 'VLESS_PROBE=none'
+        Write-Output 'WORKING=0'
+        Write-ProbeLog 'winner did not stay up'
+        exit 1
     }
-    if (Test-CurlVia 'http' 10809) {
-        $winnerIdx = $i; $winnerMode = 'http'; $winnerLabel = $label
-        Write-ProbeLog '  OK http 10809'
-        break
+
+    try {
+        $metaObj = Get-Content $metaFile -Raw | ConvertFrom-Json
+        $metaObj | Add-Member -NotePropertyName 'cursorMode' -NotePropertyValue $winnerMode -Force
+        $metaObj | Add-Member -NotePropertyName 'profileIndex' -NotePropertyValue $winnerIdx -Force
+        ($metaObj | ConvertTo-Json -Compress) | Out-File $metaFile -Encoding ASCII -Force
+    } catch {}
+
+    Write-Output ("VLESS_PROFILE={0}" -f $winnerLabel)
+    Write-Output ("VLESS_MODE={0}" -f $winnerMode)
+    Write-Output ("VLESS_INDEX={0}" -f $winnerIdx)
+    Write-Output 'WORKING=1'
+    Write-ProbeLog "WINNER $winnerLabel mode=$winnerMode"
+    exit 0
+} finally {
+    if (-not ((Test-PortListen 10808) -or (Test-PortListen 10809))) {
+        if (Test-Path -LiteralPath $fullConfig) {
+            Copy-Item -LiteralPath $fullConfig -Destination $configFile -Force
+        }
+        Start-XrayWait | Out-Null
+        Write-ProbeLog 'xray was down after probe, started again'
     }
-    Write-ProbeLog '  fail'
 }
-
-if ($winnerIdx -lt 0) {
-    if (Test-Path -LiteralPath $fullConfig) {
-        Copy-Item -LiteralPath $fullConfig -Destination $configFile -Force
-    } else {
-        & $syncScript -Quiet 2>$null | Out-Null
-    }
-    Stop-Xray
-    Start-XrayWait | Out-Null
-    Write-Output 'VLESS_PROBE=none'
-    Write-Output 'WORKING=0'
-    Write-ProbeLog 'NO WORKING PROFILE — restored full config'
-    exit 1
-}
-
-& $syncScript -Quiet -ProfileIndex $winnerIdx 2>$null | Out-Null
-Stop-Xray
-Start-XrayWait | Out-Null
-
-try {
-    $metaObj = Get-Content $metaFile -Raw | ConvertFrom-Json
-    $metaObj | Add-Member -NotePropertyName 'cursorMode' -NotePropertyValue $winnerMode -Force
-    $metaObj | Add-Member -NotePropertyName 'profileIndex' -NotePropertyValue $winnerIdx -Force
-    ($metaObj | ConvertTo-Json -Compress) | Out-File $metaFile -Encoding ASCII -Force
-} catch {}
-
-Write-Output ("VLESS_PROFILE={0}" -f $winnerLabel)
-Write-Output ("VLESS_MODE={0}" -f $winnerMode)
-Write-Output ("VLESS_INDEX={0}" -f $winnerIdx)
-Write-Output 'WORKING=1'
-Write-ProbeLog "WINNER $winnerLabel mode=$winnerMode"
-exit 0

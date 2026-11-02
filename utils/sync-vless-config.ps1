@@ -2,7 +2,9 @@
 <#
   Fetches the vpn.dance subscription (or uses a local cache) and writes
   telegram-vless\config.json for xray: SOCKS 10808 + HTTP 10809 + SOCKS 10810,
-  with Reality TCP / gRPC / WS outbounds and leastPing balancer.
+  with Reality TCP / gRPC / WS outbounds. User traffic goes to one
+  profile (TCP with a short id, not port 443). A dead leastPing fallback
+  was answering every Cursor connection with HTTP 000.
 #>
 param(
     [switch]$Quiet,
@@ -156,12 +158,15 @@ function New-OutboundJson($link, [string]$tag) {
     $streamParts.Add(('      "security": {0}' -f (Get-JsonString $security)))
     if ($security -eq 'reality') {
         $sni = if ($link.Sni) { $link.Sni } else { $link.Address }
+        $sidLine = ''
+        if (-not [string]::IsNullOrWhiteSpace([string]$link.Sid)) {
+            $sidLine = ",`r`n        `"shortId`": $(Get-JsonString $link.Sid)"
+        }
         $streamParts.Add(@"
       "realitySettings": {
         "serverName": $(Get-JsonString $sni),
         "fingerprint": $(Get-JsonString $link.Fp),
-        "publicKey": $(Get-JsonString $link.Pbk),
-        "shortId": $(Get-JsonString $link.Sid)
+        "publicKey": $(Get-JsonString $link.Pbk)$sidLine
       }
 "@)
     } elseif ($security -eq 'tls') {
@@ -203,6 +208,20 @@ $stream
       }
     }
 "@
+}
+
+function Get-LinkRank($link) {
+    # Port 443 with an empty Reality short id is the first thing a filtered
+    # network drops. Keep it last so the direct route is a profile that answers.
+    $rank = 40
+    switch ([string]$link.Type) {
+        'tcp' { $rank = 10 }
+        'ws' { $rank = 20 }
+        'grpc' { $rank = 30 }
+    }
+    if ([int]$link.Port -eq 443) { $rank += 25 }
+    if ($link.Security -eq 'reality' -and [string]::IsNullOrWhiteSpace([string]$link.Sid)) { $rank += 5 }
+    return $rank
 }
 
 function Get-PreferOrder {
@@ -383,6 +402,7 @@ foreach ($l in $sorted) {
     $seen[$k] = $true
     $unique += $l
 }
+$unique = @($unique | Sort-Object @{ Expression = { Get-LinkRank $_ } }, @{ Expression = { [string]$_.Address } }, @{ Expression = { [int]$_.Port } })
 
 if ($ProfileIndex -ge 0 -and $ProfileIndex -lt $unique.Count) {
     $unique = @($unique[$ProfileIndex])
@@ -414,7 +434,10 @@ $fallback = $selectorTags[0]
 $selectorJson = ($selectorTags | ForEach-Object { Get-JsonString $_ }) -join ', '
 $outboundsJoined = ($outboundJson -join ",`n")
 $probe = Get-JsonString (Get-ProbeUrl)
-$useBalancer = ($selectorTags.Count -gt 1)
+# leastPing holds the first packets on fallback (often :443) until observatory
+# finishes. From a filtered network that fallback never answers, so Cursor
+# stays on HTTP 000. Route straight at the best profile instead.
+$useBalancer = $false
 $remarks = 'Otmena | vpn.dance | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810'
 $directJson = Get-DirectDomainJson
 $directRule = ''

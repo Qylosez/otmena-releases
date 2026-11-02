@@ -587,26 +587,24 @@ function Test-SecretNet {
 
 function Start-CursorEurope {
     Write-Info 'Cursor Europe: tunnel + proksi...'
-    # A running xray must stay up. The profile scan stops it, and the window
-    # kills Start at 90 seconds, so the scan used to leave nothing listening.
-    if (-not (Test-PortListen 10809) -and -not (Test-PortListen 10808)) {
-        Write-Info 'xray ne slushaet, podnimayu profil vpn.dance...'
-        $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet 2>&1 | Out-String
+    # An open local port is not a working tunnel. HTTP 000 means xray is up
+    # but the selected VLESS profile never reaches api2.cursor.sh.
+    $httpUp = Test-PortListen 10809
+    $live = $httpUp -and (Test-EndpointLive -Mode http -Port 10809)
+    if (-not $live) {
+        Write-Info 'Cursor Europe: api2.cursor.sh ne otvechaet, ishchu drugoj profil vpn.dance...'
+        $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet -TimeoutSec 4 2>&1 | Out-String
         if ($probe -match 'WORKING=1') {
-            Write-Ok 'vpn.dance: najden rabochij profil'
+            $label = 'profil'
+            if ($probe -match 'VLESS_PROFILE=(\S+)') { $label = $Matches[1] }
+            Write-Ok ("vpn.dance: rabochij profil {0}" -f $label)
         } else {
-            Write-Warn 'vpn.dance: net rabochego profilya na etoj seti'
+            Write-Warn 'vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh s etoj seti'
         }
-    }
-    if (Test-PortListen 10809) {
-        & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Mode http -Port 10809 -Label 'cursor-http' -Quiet:$Quiet -RestartCursor 2>$null | Out-Null
-        if ($LASTEXITCODE -eq 0) { return $true }
     }
     if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
         return $true
     }
-    if ((Test-PortListen 10809) -or (Test-PortListen 10808)) { return $true }
-    Disable-CursorTunnelProxy -Quiet | Out-Null
     return $false
 }
 
@@ -643,8 +641,16 @@ switch ($Action) {
         $cursor = Start-CursorEurope
         if ($cursor) {
             $ep = Get-CursorTunnelEndpoint
-            $url = if ($ep.Mode -eq 'socks') { "socks5://127.0.0.1:$($ep.Port)" } else { "http://127.0.0.1:$($ep.Port)" }
-            Write-Ok ("Cursor Europe -> {0} ({1}). Cursor perezapuschen s proksi." -f $url, $ep.Label)
+            $mode = 'http'
+            $port = 10809
+            $label = 'cursor-http'
+            if ($ep -and $ep.Port) {
+                $mode = [string]$ep.Mode
+                $port = [int]$ep.Port
+                if ($ep.Label) { $label = [string]$ep.Label }
+            }
+            $url = if ($mode -eq 'socks') { "socks5://127.0.0.1:$port" } else { "http://127.0.0.1:$port" }
+            Write-Ok ("Cursor Europe -> {0} ({1}). Cursor perezapuschen s proksi." -f $url, $label)
         } else {
             Write-Warn 'Cursor Europe: tunnel ne otvechaet, proksi ne stavlyu (inache reconnect loop).'
         }

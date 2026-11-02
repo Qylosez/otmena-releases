@@ -119,8 +119,7 @@
         "realitySettings": {
           "serverName": "yahoo.com",
           "fingerprint": "qq",
-          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": ""
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc"
         }
       }
     },
@@ -175,8 +174,7 @@
         "realitySettings": {
           "serverName": "deepl.com",
           "fingerprint": "qq",
-          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": ""
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc"
         }
       }
     },
@@ -222,22 +220,6 @@
   ],
   "routing": {
     "domainStrategy": "IPIfNonMatch",
-    "balancers": [
-      {
-        "tag": "auto",
-        "selector": [
-          "proxy-grpc",
-          "proxy-tcp",
-          "proxy-tcp-2",
-          "proxy-tcp-3",
-          "proxy-ws"
-        ],
-        "fallbackTag": "proxy-tcp",
-        "strategy": {
-          "type": "leastPing"
-        }
-      }
-    ],
     "rules": [
       {
         "type": "field",
@@ -316,21 +298,9 @@
           "http-cursor",
           "socks-cursor"
         ],
-        "balancerTag": "auto"
+        "outboundTag": "proxy-tcp-2"
       }
     ]
-  },
-  "observatory": {
-    "subjectSelector": [
-      "proxy-grpc",
-      "proxy-tcp",
-      "proxy-tcp-2",
-      "proxy-tcp-3",
-      "proxy-ws"
-    ],
-    "probeUrl": "https://api2.cursor.sh",
-    "probeInterval": "45s",
-    "enableConcurrency": true
   },
   "remarks": "Otmena | vpn.dance | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
 }

@@ -39,7 +39,14 @@ while ($true) {
     }
     elseif ($hasProxy -and -not $ep) {
         $deadStreak++
-        if ($deadStreak -eq 2 -or $deadStreak -eq 6) {
+        if ($deadStreak -eq 2) {
+            Write-WatchLog 'tunnel dead -> probe profiles'
+            & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet -TimeoutSec 4 | Out-Null
+            if (Get-CursorTunnelEndpoint) {
+                Enable-CursorTunnelProxy -Quiet | Out-Null
+                $deadStreak = 0
+            }
+        } elseif ($deadStreak -eq 6) {
             Write-WatchLog 'tunnel dead -> restart xray'
             & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
         }

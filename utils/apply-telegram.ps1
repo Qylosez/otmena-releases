@@ -48,7 +48,10 @@ function Invoke-TelegramInsertScript {
 }
 
 $xrayOk = [int](Test-PortListen $socksPort)
-if (-not $SkipXray -and -not $xrayOk) {
+$cursorSocksUp = [int](Test-PortListen 10810)
+# A process left from an older config can hold 10808 and still have no
+# Cursor inbound. Restart so the current config is the one that is listening.
+if (-not $SkipXray -and ((-not $xrayOk) -or -not $cursorSocksUp)) {
     & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
     for ($i = 0; $i -lt 16; $i++) {
         if (Test-PortListen $socksPort) { $xrayOk = 1; break }
@@ -127,7 +130,12 @@ if ($xrayOk) {
     }
 }
 Write-Output ("TG_SOCKS={0}" -f $socksOk)
-Write-TelegramInsertLog ("socks result ok={0}" -f $socksOk)
+$socksNote = ''
+if ($socks -and $socks.Text) {
+    $socksNote = (($socks.Text -replace '\s+', ' ').Trim())
+    if ($socksNote.Length -gt 180) { $socksNote = $socksNote.Substring(0, 180) }
+}
+Write-TelegramInsertLog ("socks result ok={0} {1}" -f $socksOk, $socksNote)
 
 if (-not $Quiet) {
     if ($xrayOk -and $socksOk) {
