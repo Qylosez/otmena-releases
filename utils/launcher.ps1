@@ -586,9 +586,11 @@ function Test-SecretNet {
 }
 
 function Start-CursorEurope {
-    Write-Info 'Cursor Europe: poisk zhivogo tunnel + proksi...'
-    if (-not (Get-CursorTunnelEndpoint)) {
-        Write-Info 'Poisk rabochego profilya vpn.dance...'
+    Write-Info 'Cursor Europe: tunnel + proksi...'
+    # A running xray must stay up. The profile scan stops it, and the window
+    # kills Start at 90 seconds, so the scan used to leave nothing listening.
+    if (-not (Test-PortListen 10809) -and -not (Test-PortListen 10808)) {
+        Write-Info 'xray ne slushaet, podnimayu profil vpn.dance...'
         $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet 2>&1 | Out-String
         if ($probe -match 'WORKING=1') {
             Write-Ok 'vpn.dance: najden rabochij profil'
@@ -596,13 +598,14 @@ function Start-CursorEurope {
             Write-Warn 'vpn.dance: net rabochego profilya na etoj seti'
         }
     }
-    if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
-        return $true
-    }
     if (Test-PortListen 10809) {
         & (Join-Path $PSScriptRoot 'cursor-proxy.ps1') -Mode http -Port 10809 -Label 'cursor-http' -Quiet:$Quiet -RestartCursor 2>$null | Out-Null
         if ($LASTEXITCODE -eq 0) { return $true }
     }
+    if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
+        return $true
+    }
+    if ((Test-PortListen 10809) -or (Test-PortListen 10808)) { return $true }
     Disable-CursorTunnelProxy -Quiet | Out-Null
     return $false
 }
