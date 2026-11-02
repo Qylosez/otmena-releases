@@ -263,6 +263,101 @@ function Get-TagForLink($link, $used) {
     return $tag
 }
 
+function Get-SpareVlessLinks {
+    $script:SpareState = 'off'
+    $url = $null
+    if (Test-Path $subFile) {
+        try {
+            $cfg = Get-Content -LiteralPath $subFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($cfg.spareUrl) { $url = [string]$cfg.spareUrl }
+        } catch {}
+    }
+    if (-not $url) { return @() }
+    if ($Offline) { $script:SpareState = 'offline'; return @() }
+    $body = $null
+    try {
+        $headers = @{
+            'x-hwid' = 'otmena-815815910'
+            'x-device-os' = 'Windows'
+            'x-ver-os' = '10.0'
+            'x-device-model' = 'Desktop'
+            'User-Agent' = 'Happ/2.0.0'
+        }
+        $resp = Invoke-WebRequest -Uri $url -Headers $headers -UseBasicParsing -TimeoutSec 15
+        $body = [string]$resp.Content
+    } catch {
+        $script:SpareState = 'fetch-fail'
+        return @()
+    }
+    if (-not $body) { $script:SpareState = 'empty'; return @() }
+    # The panel sends 0.0.0.0:1 when the device limit is full. Never route through that.
+    if ($body.Contains('0.0.0.0') -and $body.Contains('00000000-0000-0000-0000-000000000000')) {
+        $script:SpareState = 'limit'
+        return @()
+    }
+    $parsed = @()
+    try { $parsed = @($body | ConvertFrom-Json) } catch { $script:SpareState = 'bad'; return @() }
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($item in $parsed) {
+        if (-not $item.outbounds) { continue }
+        foreach ($ob in @($item.outbounds)) {
+            if ([string]$ob.protocol -ne 'vless') { continue }
+            $vnext = @($ob.settings.vnext)
+            if ($vnext.Count -lt 1) { continue }
+            $node = $vnext[0]
+            $users = @($node.users)
+            if ($users.Count -lt 1) { continue }
+            $user = $users[0]
+            $addr = [string]$node.address
+            $port = 0
+            try { $port = [int]$node.port } catch { $port = 0 }
+            $id = [string]$user.id
+            if (-not $addr -or $addr -eq '0.0.0.0' -or $port -le 1) { continue }
+            if ($id -like '00000000-*') { continue }
+            $ss = $ob.streamSettings
+            $net = 'tcp'
+            $sec = 'none'
+            if ($ss -and $ss.network) { $net = ([string]$ss.network).ToLowerInvariant() }
+            if ($ss -and $ss.security) { $sec = ([string]$ss.security).ToLowerInvariant() }
+            $sni = $null
+            $fp = 'qq'
+            $pbk = $null
+            $sid = ''
+            $path = '/'
+            $hosth = $null
+            $svc = 'grpcservice'
+            $flow = $null
+            if ($user.flow) { $flow = [string]$user.flow }
+            if ($ss -and $ss.realitySettings) {
+                $rs = $ss.realitySettings
+                if ($rs.serverName) { $sni = [string]$rs.serverName }
+                if ($rs.fingerprint) { $fp = [string]$rs.fingerprint }
+                if ($rs.publicKey) { $pbk = [string]$rs.publicKey }
+                if ($null -ne $rs.shortId) { $sid = [string]$rs.shortId }
+            } elseif ($ss -and $ss.tlsSettings) {
+                if ($ss.tlsSettings.serverName) { $sni = [string]$ss.tlsSettings.serverName }
+                if ($ss.tlsSettings.fingerprint) { $fp = [string]$ss.tlsSettings.fingerprint }
+            }
+            if ($ss -and $ss.wsSettings) {
+                if ($ss.wsSettings.path) { $path = [string]$ss.wsSettings.path }
+                if ($ss.wsSettings.headers -and $ss.wsSettings.headers.Host) { $hosth = [string]$ss.wsSettings.headers.Host }
+                elseif ($ss.wsSettings.host) { $hosth = [string]$ss.wsSettings.host }
+            }
+            if ($ss -and $ss.grpcSettings -and $ss.grpcSettings.serviceName) { $svc = [string]$ss.grpcSettings.serviceName }
+            [void]$out.Add([PSCustomObject]@{
+                Uuid = $id; Address = $addr; Port = $port; Type = $net; Security = $sec
+                Sni = $sni; Fp = $fp; Pbk = $pbk; Sid = $sid; Path = $path; Host = $hosth
+                Service = $svc; Flow = $flow; Remark = 'nexus'
+            })
+            if ($out.Count -ge 4) { break }
+        }
+        if ($out.Count -ge 4) { break }
+    }
+    if ($out.Count -gt 0) { $script:SpareState = 'ok' } else { $script:SpareState = 'none' }
+    return @($out)
+}
+
+$script:SpareState = 'off'
 $rawSub = Get-SubscriptionText
 $links = @(ConvertFrom-SubscriptionBody $rawSub)
 if ($links.Count -eq 0) {
@@ -292,6 +387,14 @@ foreach ($l in $sorted) {
 if ($ProfileIndex -ge 0 -and $ProfileIndex -lt $unique.Count) {
     $unique = @($unique[$ProfileIndex])
     $Single = $true
+} elseif (-not $Single) {
+    foreach ($s in @(Get-SpareVlessLinks)) {
+        if (-not $s.Address) { continue }
+        $k = '{0}|{1}|{2}' -f $s.Address, $s.Port, $s.Type
+        if ($seen.ContainsKey($k)) { continue }
+        $seen[$k] = $true
+        $unique += $s
+    }
 }
 
 $usedTags = New-Object System.Collections.Generic.List[string]
@@ -453,5 +556,6 @@ $meta = @{
 
 Say ("VLESS: {0} profilej, balancer {1}" -f $selectorTags.Count, ($selectorTags -join ', ')) Green
 $syncState = if ($script:VlessFromCache) { 'cache' } else { 'ok' }
+Write-Output ("SPARE={0}" -f $script:SpareState)
 Write-Output ("VLESS_SYNC={0} profiles={1}" -f $syncState, $selectorTags.Count)
 exit 0
