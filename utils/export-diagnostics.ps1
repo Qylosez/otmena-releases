@@ -29,6 +29,10 @@ $statusLines = & (Join-Path $PSScriptRoot 'get-status.ps1')
 foreach ($line in $statusLines) { [void]$sb.AppendLine($line) }
 
 $xrayPath = Join-Path $rootDir 'telegram-vless\bin\xray.exe'
+if (Test-OtmenaPath $xrayPath) {
+    $xrayVer = (& $xrayPath version 2>$null | Select-Object -First 1)
+    if ($xrayVer) { [void]$sb.AppendLine(("XRAY_VERSION={0}" -f $xrayVer)) }
+}
 $xrayZip = Join-Path $rootDir 'telegram-vless\bin\xray-windows-64.zip'
 if (Test-OtmenaPath $xrayPath) {
     [void]$sb.AppendLine('XRAY_PATH=present')
@@ -82,6 +86,17 @@ if (Test-OtmenaPath $agentLog) {
     Get-Content $agentLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { [void]$sb.AppendLine($_) }
 } else {
     [void]$sb.AppendLine('(no cursor-agent.log)')
+}
+
+foreach ($extraName in @('vless-probe.log', 'xray-start.log', 'xray-test.log')) {
+    $extraLog = Join-Path $PSScriptRoot $extraName
+    [void]$sb.AppendLine('')
+    [void]$sb.AppendLine(("--- {0} (last 20 lines) ---" -f $extraName))
+    if (Test-OtmenaPath $extraLog) {
+        Get-Content $extraLog -Tail 20 -ErrorAction SilentlyContinue | ForEach-Object { [void]$sb.AppendLine($_) }
+    } else {
+        [void]$sb.AppendLine('(no log)')
+    }
 }
 
 $tgLog = Join-Path $PSScriptRoot 'telegram-insert.log'

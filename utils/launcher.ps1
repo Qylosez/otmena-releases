@@ -599,7 +599,19 @@ function Start-CursorEurope {
             if ($probe -match 'VLESS_PROFILE=(\S+)') { $label = $Matches[1] }
             Write-Ok ("vpn.dance: rabochij profil {0}" -f $label)
         } else {
-            Write-Warn 'vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh s etoj seti'
+            $tried = ''
+            $metaPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'telegram-vless\subscription.meta.json'
+            if (Test-Path -LiteralPath $metaPath) {
+                try {
+                    $metaNow = Get-Content -LiteralPath $metaPath -Raw | ConvertFrom-Json
+                    if ($metaNow.profiles) { $tried = [string](@($metaNow.profiles) -join ', ') }
+                } catch {}
+            }
+            if ($tried) {
+                Write-Warn ("vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh ({0})" -f $tried)
+            } else {
+                Write-Warn 'vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh s etoj seti'
+            }
         }
     }
     if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {

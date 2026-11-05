@@ -66,9 +66,43 @@ function Stop-StaleXray {
     Start-Sleep -Milliseconds 400
 }
 
+function Write-XrayStartLog([string]$msg) {
+    $log = Join-Path $PSScriptRoot 'xray-start.log'
+    $line = '{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $msg
+    try { Add-Content -LiteralPath $log -Value $line -Encoding UTF8 } catch {}
+}
+
 function Test-XrayConfigFile {
     if (-not (Test-Path $xrayExe) -or -not (Test-Path $configFile)) { return $false }
-    $code = Start-OtmenaNativeProcess -FilePath $xrayExe -Arguments "run -test -c `"$configFile`"" -WorkingDirectory $vlessDir -Wait -WaitMs 8000
+    $code = -1
+    $text = ''
+    try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $xrayExe
+        $psi.Arguments = "run -test -c `"$configFile`""
+        $psi.WorkingDirectory = $vlessDir
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $psi
+        [void]$p.Start()
+        $outTask = $p.StandardOutput.ReadToEndAsync()
+        $errTask = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit(8000)) {
+            try { $p.Kill() } catch {}
+            $code = -1
+        } else {
+            $code = $p.ExitCode
+        }
+        $text = (([string]$outTask.Result) + "`n" + ([string]$errTask.Result)).Trim()
+    } catch {
+        $code = Start-OtmenaNativeProcess -FilePath $xrayExe -Arguments "run -test -c `"$configFile`"" -WorkingDirectory $vlessDir -Wait -WaitMs 8000
+        $text = [string]$_.Exception.Message
+    }
+    $log = Join-Path $PSScriptRoot 'xray-test.log'
+    try { Set-Content -LiteralPath $log -Value ("exit={0}`r`n{1}" -f $code, $text) -Encoding UTF8 } catch {}
     return ($code -eq 0)
 }
 
@@ -130,9 +164,13 @@ function Start-XrayQuiet {
 
 $tg = Start-XrayQuiet
 Restore-CursorProxyAfterXray
+$socksUp = [int](Test-PortListen $socksPort)
+$httpUp = [int](Test-PortListen $httpPort)
+$cursorSocksUp = [int](Test-PortListen 10810)
 Write-Output ("XRAY_STATUS={0}" -f $tg)
-Write-Output ("XRAY_SOCKS={0}" -f [int](Test-PortListen $socksPort))
-Write-Output ("XRAY_HTTP={0}" -f [int](Test-PortListen $httpPort))
+Write-Output ("XRAY_SOCKS={0}" -f $socksUp)
+Write-Output ("XRAY_HTTP={0}" -f $httpUp)
+Write-XrayStartLog ("status={0} socks10808={1} http10809={2} socks10810={3}" -f $tg, $socksUp, $httpUp, $cursorSocksUp)
 
 if (-not $Quiet) {
     Write-Host "telegram socks: $tg (127.0.0.1:$socksPort)"

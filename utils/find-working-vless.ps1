@@ -87,8 +87,12 @@ if ($count -le 0) {
 Write-ProbeLog "probe $count profiles"
 
 $fullConfig = Join-Path $vlessDir 'config.probe-backup.json'
+$fullMeta = Join-Path $vlessDir 'subscription.meta.probe-backup.json'
 Copy-Item -LiteralPath $configFile -Destination $fullConfig -Force
-$deadline = (Get-Date).AddSeconds(20)
+if (Test-Path -LiteralPath $metaFile) {
+    Copy-Item -LiteralPath $metaFile -Destination $fullMeta -Force
+}
+$deadline = (Get-Date).AddSeconds(35)
 $winnerIdx = -1
 $winnerMode = 'socks'
 $winnerLabel = ''
@@ -103,7 +107,27 @@ try {
         exit 0
     }
 
-    for ($i = 0; $i -lt $count; $i++) {
+    # The full config already tried profile 0. Retrying it burns the whole
+    # deadline on one dead address, so the other country is never tested.
+    $tryOrder = New-Object System.Collections.Generic.List[int]
+    $metaAll = $null
+    try { $metaAll = Get-Content $metaFile -Raw | ConvertFrom-Json } catch {}
+    $profileList = @()
+    if ($metaAll -and $metaAll.profiles) { $profileList = @($metaAll.profiles) }
+    $primaryAddr = ''
+    if ($profileList.Count -gt 0 -and [string]$profileList[0] -match '^([^:]+):') { $primaryAddr = $Matches[1] }
+    $otherAddr = New-Object System.Collections.Generic.List[int]
+    $sameAddr = New-Object System.Collections.Generic.List[int]
+    for ($i = 1; $i -lt $count; $i++) {
+        $addr = ''
+        if ($i -lt $profileList.Count -and [string]$profileList[$i] -match '^([^:]+):') { $addr = $Matches[1] }
+        if ($primaryAddr -and $addr -and ($addr -ne $primaryAddr)) { $otherAddr.Add($i) } else { $sameAddr.Add($i) }
+    }
+    foreach ($i in $otherAddr) { $tryOrder.Add($i) }
+    foreach ($i in $sameAddr) { $tryOrder.Add($i) }
+    Write-ProbeLog ("order other-address-first " + ($tryOrder -join ','))
+
+    foreach ($i in $tryOrder) {
         if ((Get-Date) -gt $deadline) {
             Write-ProbeLog 'deadline, stop scanning'
             break
@@ -132,6 +156,9 @@ try {
             Copy-Item -LiteralPath $fullConfig -Destination $configFile -Force
         } else {
             & $syncScript -Quiet -Offline 2>$null | Out-Null
+        }
+        if (Test-Path -LiteralPath $fullMeta) {
+            Copy-Item -LiteralPath $fullMeta -Destination $metaFile -Force
         }
         Stop-Xray
         Start-XrayWait | Out-Null
@@ -167,6 +194,9 @@ try {
     if (-not ((Test-PortListen 10808) -or (Test-PortListen 10809))) {
         if (Test-Path -LiteralPath $fullConfig) {
             Copy-Item -LiteralPath $fullConfig -Destination $configFile -Force
+        }
+        if (Test-Path -LiteralPath $fullMeta) {
+            Copy-Item -LiteralPath $fullMeta -Destination $metaFile -Force
         }
         Start-XrayWait | Out-Null
         Write-ProbeLog 'xray was down after probe, started again'

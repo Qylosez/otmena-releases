@@ -211,16 +211,15 @@ $stream
 }
 
 function Get-LinkRank($link) {
-    # Port 443 with an empty Reality short id is the first thing a filtered
-    # network drops. Keep it last so the direct route is a profile that answers.
+    # An empty Reality short id often hangs the handshake (curl HTTP 000).
+    # Prefer a profile that actually carries a short id.
     $rank = 40
     switch ([string]$link.Type) {
         'tcp' { $rank = 10 }
         'ws' { $rank = 20 }
         'grpc' { $rank = 30 }
     }
-    if ([int]$link.Port -eq 443) { $rank += 25 }
-    if ($link.Security -eq 'reality' -and [string]::IsNullOrWhiteSpace([string]$link.Sid)) { $rank += 5 }
+    if ($link.Security -eq 'reality' -and [string]::IsNullOrWhiteSpace([string]$link.Sid)) { $rank += 25 }
     return $rank
 }
 

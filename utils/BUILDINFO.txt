@@ -1,11 +1,11 @@
-Otmena build 1.1.49
-Date: 2026-11-02
+Otmena build 1.1.50
+Date: 2026-11-05
 Zapret: Flowseal/zapret-discord-youtube 1.10.1
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
-VLESS: vpn.dance Lithuania 84.32.248.33 (Reality SNI yahoo.com, until 23.11.2026)
+VLESS: vpn.dance Lithuania 5.199.162.131 (Reality SNI yandex.ru, until 23.11.2026)
 Spare: Nexus https://link.nexus-freedom.online/api/sub/S-KN2RmwbSnqee5h (skipped while the panel says the device limit is full)
 Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
-Cursor: route through TCP 8444 (short id), not leastPing on port 443. Open 10809 with HTTP 000 is not a running tunnel.
+Cursor: route through TCP 443 short id d7e1a111. If that address hangs, try the other country before retrying the same IP.
 Telegram: insert proxy-dag.ru and SOCKS via Telegram.exe even when tg:// is taken by the Store app
 Telegram spare MTProto list for manual entry: data.mtproxy.cc, mtpvideo.my, 138.124.127.179
 Telegram: if proxy-dag.ru:443 is closed, leave it alone and add SOCKS 127.0.0.1:10808. Do not send a disable command
