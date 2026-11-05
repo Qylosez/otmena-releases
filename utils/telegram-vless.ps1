@@ -109,7 +109,7 @@ function Ensure-ZapretAlt11 {
 & (Join-Path $PSScriptRoot 'disable-system-proxy.ps1')
 
 Write-Host ''
-Write-Color '=== Telegram via your VLESS (Poland) ===' Cyan
+Write-Color '=== Telegram via VLESS (vpn.dance) ===' Cyan
 Write-Host 'Zapret ALT11 = Discord/YouTube. This script = only Telegram SOCKS.'
 Write-Host 'Games: system proxy is OFF - only Telegram app uses SOCKS.'
 Write-Host 'Do NOT enable TUN in v2rayTun - it breaks zapret (Discord/YouTube).'

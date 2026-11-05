@@ -12,4 +12,8 @@ telegram-vless/bin/*.exe
 # Runtime state / logs
 telegram-vless/*.pid
 telegram-vless/*.log
+telegram-vless/*.bak
 utils/*.log
+utils/*.lock
+utils/desired-running.flag
+utils/cursor-proxy.state.json

@@ -16,11 +16,13 @@ Write-Step 'Ostanovka zapret i Telegram...'
 & $launcher -Action stop -Quiet
 
 Write-Step 'Udalenie avtozapuska...'
-Unregister-ScheduledTask -TaskName 'Otmena-Start' -Confirm:$false
-Unregister-ScheduledTask -TaskName 'Zapret-Start' -Confirm:$false
-Unregister-ScheduledTask -TaskName 'Zapret3-Telegram-Vless' -Confirm:$false
-Unregister-ScheduledTask -TaskName 'Zapret3-NoSystemProxy' -Confirm:$false
-Unregister-ScheduledTask -TaskName 'Zapret3-ALT11' -Confirm:$false
+$autoFlag = Join-Path $PSScriptRoot 'autostart.on'
+if (Test-Path -LiteralPath $autoFlag) { Remove-Item -LiteralPath $autoFlag -Force }
+Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'Otmena' -ErrorAction SilentlyContinue
+foreach ($name in @('Otmena-Start', 'Otmena-Winws', 'Zapret-Start', 'Zapret3-Telegram-Vless', 'Zapret3-NoSystemProxy', 'Zapret3-ALT11')) {
+    & schtasks.exe /Delete /TN $name /F 2>$null | Out-Null
+    Unregister-ScheduledTask -TaskName $name -Confirm:$false
+}
 
 $startupDir = [Environment]::GetFolderPath('Startup')
 foreach ($name in @('Otmena.lnk', 'Zapret3.lnk', 'Zapret.lnk', 'Zapret.exe.lnk')) {
