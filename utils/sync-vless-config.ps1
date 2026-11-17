@@ -495,7 +495,12 @@ function Get-ExtraLinks {
 $script:SpareState = 'off'
 $rawSub = Get-SubscriptionText
 $links = @(ConvertFrom-SubscriptionBody $rawSub)
+$knownAddr = @{}
+foreach ($haveLink in $links) { $knownAddr[[string]$haveLink.Address] = $true }
 foreach ($extra in @(Get-ExtraLinks)) {
+    # A pinned link from the previous country (preserved subscription.json)
+    # must not be dialed after the bot switches the server.
+    if (-not $knownAddr.ContainsKey([string]$extra.Address)) { continue }
     $have = $false
     foreach ($haveLink in $links) {
         if ($haveLink.Address -eq $extra.Address -and [int]$haveLink.Port -eq [int]$extra.Port -and $haveLink.Type -eq $extra.Type) { $have = $true; break }

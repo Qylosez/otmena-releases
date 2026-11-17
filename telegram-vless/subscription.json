@@ -7,8 +7,5 @@
     "grpc"
   ],
   "probeUrl": "https://api2.cursor.sh",
-  "extra": [
-    "hysteria2://aca2426f-7356-444c-b7cb-62cc5f8b9b89@5.199.161.35:443/?sni=wa991f114.devs.dance&obfs=salamander&obfs-password=5c8995cfb9635fb9f042a7709c021c18#Hysteria2"
-  ],
-  "notes": "vpn.dance VLESS Lithuania 5.199.161.35 (Reality SNI www.google.com, until 23.11.2026). TCP 443 sid d7e1abac, TCP 8444 sid 6ba85179e30d4fc2, gRPC 8443 sid 189cfa69, WS-TLS 8447 wa991f114.devs.dance, Hysteria2 UDP 443 salamander, auto 194.55.244.117 WS 8447 w14f2e574.devs.dance. TLS ClientHello is fragmented. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
+  "notes": "vpn.dance VLESS Switzerland 83.228.228.224 (Reality SNI api-maps.yandex.ru, until 23.11.2026). TCP 443 sid dde66ef1, TCP 8444 sid 189cfa69, gRPC 8443 sid d7e1a2bb, WS-TLS 8447 we88d1ad5.devs.dance, auto 194.55.244.117 WS 8447 w14f2e574.devs.dance. TLS ClientHello is fragmented. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
 }

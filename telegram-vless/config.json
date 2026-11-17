@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.161.35",
+            "address": "83.228.228.224",
             "port": 443,
             "users": [
               {
-                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
+                "id": "7f762d13-e977-4165-9230-c09b867565ea",
                 "encryption": "none"
               }
             ]
@@ -85,10 +85,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "www.google.com",
+          "serverName": "api-maps.yandex.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "d7e1abac"
+          "shortId": "dde66ef1"
         },
         "sockopt": {
           "dialerProxy": "fragment"
@@ -101,11 +101,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.161.35",
+            "address": "83.228.228.224",
             "port": 8444,
             "users": [
               {
-                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
+                "id": "7f762d13-e977-4165-9230-c09b867565ea",
                 "encryption": "none"
               }
             ]
@@ -116,10 +116,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "www.google.com",
+          "serverName": "api-maps.yandex.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "6ba85179e30d4fc2"
+          "shortId": "189cfa69"
         },
         "sockopt": {
           "dialerProxy": "fragment"
@@ -166,11 +166,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.161.35",
+            "address": "83.228.228.224",
             "port": 8447,
             "users": [
               {
-                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
+                "id": "7f762d13-e977-4165-9230-c09b867565ea",
                 "encryption": "none"
               }
             ]
@@ -181,12 +181,12 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "wa991f114.devs.dance",
+          "serverName": "we88d1ad5.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
-          "host": "wa991f114.devs.dance",
+          "host": "we88d1ad5.devs.dance",
           "path": "/ws"
         },
         "sockopt": {
@@ -200,11 +200,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.161.35",
+            "address": "83.228.228.224",
             "port": 8443,
             "users": [
               {
-                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
+                "id": "7f762d13-e977-4165-9230-c09b867565ea",
                 "encryption": "none"
               }
             ]
@@ -215,10 +215,10 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "www.google.com",
+          "serverName": "api-maps.yandex.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "189cfa69"
+          "shortId": "d7e1a2bb"
         },
         "grpcSettings": {
           "serviceName": "grpcservice",
@@ -226,39 +226,6 @@
         },
         "sockopt": {
           "dialerProxy": "fragment"
-        }
-      }
-    },
-    {
-      "tag": "proxy-hy",
-      "protocol": "hysteria",
-      "settings": {
-        "version": 2,
-        "address": "5.199.161.35",
-        "port": 443
-      },
-      "streamSettings": {
-        "network": "hysteria",
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "wa991f114.devs.dance",
-          "alpn": [
-            "h3"
-          ]
-        },
-        "hysteriaSettings": {
-          "version": 2,
-          "auth": "aca2426f-7356-444c-b7cb-62cc5f8b9b89"
-        },
-        "finalmask": {
-          "udp": [
-            {
-              "type": "salamander",
-              "settings": {
-                "password": "5c8995cfb9635fb9f042a7709c021c18"
-              }
-            }
-          ]
         }
       }
     },
@@ -366,5 +333,5 @@
       }
     ]
   },
-  "remarks": "Otmena | vpn.dance | Lithuania 5.199.161.35 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
+  "remarks": "Otmena | vpn.dance | Switzerland 83.228.228.224 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
 }
