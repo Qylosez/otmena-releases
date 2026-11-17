@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.162.131",
+            "address": "5.199.161.35",
             "port": 443,
             "users": [
               {
-                "id": "f49f1423-461f-47bd-afbc-cf079f334a0b",
+                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
                 "encryption": "none"
               }
             ]
@@ -85,10 +85,38 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yandex.ru",
+          "serverName": "www.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "d7e1a111"
+          "shortId": "d7e1abac"
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "5.199.161.35",
+            "port": 8444,
+            "users": [
+              {
+                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.google.com",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "6ba85179e30d4fc2"
         }
       }
     },
@@ -98,11 +126,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.162.131",
+            "address": "194.55.244.117",
             "port": 8447,
             "users": [
               {
-                "id": "f49f1423-461f-47bd-afbc-cf079f334a0b",
+                "id": "68662bf0-7210-4888-9c71-05b829c5eabb",
                 "encryption": "none"
               }
             ]
@@ -113,12 +141,12 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "wbbed8a2f.devs.dance",
+          "serverName": "w14f2e574.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
-          "host": "wbbed8a2f.devs.dance",
+          "host": "w14f2e574.devs.dance",
           "path": "/ws"
         }
       }
@@ -129,11 +157,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "83.228.209.227",
-            "port": 2053,
+            "address": "5.199.161.35",
+            "port": 8447,
             "users": [
               {
-                "id": "c59afc24-ebbd-4316-81f6-1c09c2fdee3d",
+                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
                 "encryption": "none"
               }
             ]
@@ -144,12 +172,12 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "waa36908a.devs.dance",
+          "serverName": "wa991f114.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
-          "host": "waa36908a.devs.dance",
+          "host": "wa991f114.devs.dance",
           "path": "/ws"
         }
       }
@@ -160,11 +188,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "5.199.162.131",
+            "address": "5.199.161.35",
             "port": 8443,
             "users": [
               {
-                "id": "f49f1423-461f-47bd-afbc-cf079f334a0b",
+                "id": "aca2426f-7356-444c-b7cb-62cc5f8b9b89",
                 "encryption": "none"
               }
             ]
@@ -175,7 +203,7 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "yandex.ru",
+          "serverName": "www.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
           "shortId": "189cfa69"
@@ -183,33 +211,6 @@
         "grpcSettings": {
           "serviceName": "grpcservice",
           "multiMode": false
-        }
-      }
-    },
-    {
-      "tag": "proxy-tcp-2",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "5.199.162.131",
-            "port": 8444,
-            "users": [
-              {
-                "id": "f49f1423-461f-47bd-afbc-cf079f334a0b",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "yandex.ru",
-          "fingerprint": "qq",
-          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc"
         }
       }
     },
@@ -306,5 +307,5 @@
       }
     ]
   },
-  "remarks": "Otmena | vpn.dance | Lithuania 5.199.162.131 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
+  "remarks": "Otmena | vpn.dance | Lithuania 5.199.161.35 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
 }

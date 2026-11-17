@@ -7,5 +7,5 @@
     "grpc"
   ],
   "probeUrl": "https://api2.cursor.sh",
-  "notes": "vpn.dance VLESS Lithuania 5.199.162.131 (Reality SNI yandex.ru, until 23.11.2026). TCP 443 sid d7e1a111, TCP 8444 sid empty, gRPC 8443 sid 189cfa69, WS-TLS 8447 wbbed8a2f.devs.dance, auto Switzerland 83.228.209.227 WS 2053 waa36908a.devs.dance. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
+  "notes": "vpn.dance VLESS Lithuania 5.199.161.35 (Reality SNI www.google.com, until 23.11.2026). TCP 443 sid d7e1abac, TCP 8444 sid 6ba85179e30d4fc2, gRPC 8443 sid 189cfa69, WS-TLS 8447 wa991f114.devs.dance, auto 194.55.244.117 WS 8447 w14f2e574.devs.dance. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
 }
