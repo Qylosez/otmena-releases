@@ -479,9 +479,29 @@ function Get-SpareVlessLinks {
     return @($out)
 }
 
+function Get-ExtraLinks {
+    if (-not (Test-Path $subFile)) { return @() }
+    try { $cfg = Get-Content -LiteralPath $subFile -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return @() }
+    if (-not $cfg.extra) { return @() }
+    $found = @()
+    foreach ($line in @($cfg.extra)) {
+        $parsed = ConvertFrom-VlessUri ([string]$line)
+        if (-not $parsed) { $parsed = ConvertFrom-HysteriaUri ([string]$line) }
+        if ($parsed) { $found += $parsed }
+    }
+    return $found
+}
+
 $script:SpareState = 'off'
 $rawSub = Get-SubscriptionText
 $links = @(ConvertFrom-SubscriptionBody $rawSub)
+foreach ($extra in @(Get-ExtraLinks)) {
+    $have = $false
+    foreach ($haveLink in $links) {
+        if ($haveLink.Address -eq $extra.Address -and [int]$haveLink.Port -eq [int]$extra.Port -and $haveLink.Type -eq $extra.Type) { $have = $true; break }
+    }
+    if (-not $have) { $links += $extra }
+}
 if ($links.Count -eq 0) {
     Say 'VLESS: net profilej v podpiske, ostavlyayu tekushij config.json' Yellow
     Write-Output 'VLESS_SYNC=cache-miss'

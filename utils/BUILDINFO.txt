@@ -1,11 +1,11 @@
-Otmena build 1.1.52
+Otmena build 1.1.53
 Date: 2026-11-18
 Zapret: Flowseal/zapret-discord-youtube 1.10.1
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
 VLESS: vpn.dance Lithuania 5.199.161.35 (Reality SNI www.google.com, until 23.11.2026)
 Spare: Nexus https://link.nexus-freedom.online/api/sub/S-KN2RmwbSnqee5h (skipped while the panel says the device limit is full)
 Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
-Cursor: route through TCP 443 short id d7e1abac with a fragmented TLS ClientHello. If that address hangs, try the other country before retrying the same IP. Hysteria2 UDP is last. A 403 from the auto location is a region block, not a working tunnel.
+Cursor: route through TCP 443 short id d7e1abac with a fragmented TLS ClientHello. If that address hangs, try the other country, then pinned Hysteria2 UDP, before retrying the same IP. A 403 from the auto location is a region block, not a working tunnel. The Dance list dropped the Hysteria2 line; subscription.json extra keeps it.
 Telegram: insert proxy-dag.ru and SOCKS via Telegram.exe even when tg:// is taken by the Store app
 Telegram spare MTProto list for manual entry: data.mtproxy.cc, mtpvideo.my, 138.124.127.179
 Telegram: if proxy-dag.ru:443 is closed, leave it alone and add SOCKS 127.0.0.1:10808. Do not send a disable command

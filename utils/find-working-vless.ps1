@@ -112,34 +112,50 @@ $winnerIdx = -1
 $winnerMode = 'socks'
 $winnerLabel = ''
 
+$metaAll = $null
+try { $metaAll = Get-Content $metaFile -Raw | ConvertFrom-Json } catch {}
+$profileList = @()
+if ($metaAll -and $metaAll.profiles) { $profileList = @($metaAll.profiles) }
+$primaryAddr = ''
+if ($profileList.Count -gt 0 -and [string]$profileList[0] -match '^([^:]+):') { $primaryAddr = $Matches[1] }
+
 try {
     Stop-Xray
-    if ((Start-XrayWait) -and (Test-CurlVia 'http' 10809)) {
+    $fullTcpDead = $false
+    if ($profileList.Count -gt 0 -and [string]$profileList[0] -notmatch '/hysteria' -and [string]$profileList[0] -match '^([^:]+):(\d+)/') {
+        if (-not (Test-RemoteTcpQuick $Matches[1] ([int]$Matches[2]))) { $fullTcpDead = $true }
+    }
+    if ($fullTcpDead) {
+        $script:LastCurlCode = '000'
+        Write-ProbeLog ("full config tcp=0 http=skip {0}" -f $profileList[0])
+    } elseif ((Start-XrayWait) -and (Test-CurlVia 'http' 10809)) {
         Write-Output 'VLESS_PROFILE=full'
         Write-Output 'VLESS_MODE=http'
         Write-Output 'WORKING=1'
         Write-ProbeLog 'full config already live'
         exit 0
+    } else {
+        Write-ProbeLog ("full config not live http={0}" -f $script:LastCurlCode)
     }
-    Write-ProbeLog ("full config not live http={0}" -f $script:LastCurlCode)
 
     # The full config already tried profile 0. Retrying it burns the whole
-    # deadline on one dead address, so the other country is never tested.
+    # deadline on one dead address, so the other country is tried first.
+    # Hysteria is UDP: a dead TCP handshake must not push it behind the same IP.
     $tryOrder = New-Object System.Collections.Generic.List[int]
-    $metaAll = $null
-    try { $metaAll = Get-Content $metaFile -Raw | ConvertFrom-Json } catch {}
-    $profileList = @()
-    if ($metaAll -and $metaAll.profiles) { $profileList = @($metaAll.profiles) }
-    $primaryAddr = ''
-    if ($profileList.Count -gt 0 -and [string]$profileList[0] -match '^([^:]+):') { $primaryAddr = $Matches[1] }
     $otherAddr = New-Object System.Collections.Generic.List[int]
+    $udpAddr = New-Object System.Collections.Generic.List[int]
     $sameAddr = New-Object System.Collections.Generic.List[int]
     for ($i = 1; $i -lt $count; $i++) {
+        $label = ''
+        if ($i -lt $profileList.Count) { $label = [string]$profileList[$i] }
         $addr = ''
-        if ($i -lt $profileList.Count -and [string]$profileList[$i] -match '^([^:]+):') { $addr = $Matches[1] }
-        if ($primaryAddr -and $addr -and ($addr -ne $primaryAddr)) { $otherAddr.Add($i) } else { $sameAddr.Add($i) }
+        if ($label -match '^([^:]+):') { $addr = $Matches[1] }
+        if ($label -match '/hysteria') { $udpAddr.Add($i) }
+        elseif ($primaryAddr -and $addr -and ($addr -ne $primaryAddr)) { $otherAddr.Add($i) }
+        else { $sameAddr.Add($i) }
     }
     foreach ($i in $otherAddr) { $tryOrder.Add($i) }
+    foreach ($i in $udpAddr) { $tryOrder.Add($i) }
     foreach ($i in $sameAddr) { $tryOrder.Add($i) }
     Write-ProbeLog ("order other-address-first " + ($tryOrder -join ','))
 
