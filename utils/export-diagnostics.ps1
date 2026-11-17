@@ -88,7 +88,7 @@ if (Test-OtmenaPath $agentLog) {
     [void]$sb.AppendLine('(no cursor-agent.log)')
 }
 
-foreach ($extraName in @('vless-probe.log', 'xray-start.log', 'xray-test.log')) {
+foreach ($extraName in @('vless-probe.log', 'xray-start.log', 'xray-test.log', 'winws-start.log')) {
     $extraLog = Join-Path $PSScriptRoot $extraName
     [void]$sb.AppendLine('')
     [void]$sb.AppendLine(("--- {0} (last 20 lines) ---" -f $extraName))

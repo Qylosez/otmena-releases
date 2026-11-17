@@ -5,7 +5,6 @@ Otmena.exe
 bin/*.exe
 bin/*.sys
 bin/*.dll
-bin/*.bin
 telegram-vless/bin/xray.exe
 telegram-vless/bin/*.exe
 

@@ -372,6 +372,7 @@ function Start-OtmenaNativeProcess {
         [Parameter(Mandatory)][string]$FilePath,
         [string]$Arguments = '',
         [string]$WorkingDirectory = '',
+        [string]$LogFile = '',
         [switch]$Wait,
         [int]$WaitMs = 15000
     )
@@ -398,7 +399,16 @@ public static class OtmenaErrMode {
     $psi.CreateNoWindow = $true
     $psi.WindowStyle = 'Hidden'
     $psi.ErrorDialog = $false
+    if ($LogFile) {
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+    }
     $p = [System.Diagnostics.Process]::Start($psi)
+    if ($LogFile -and $p) {
+        $script:NativeOutTask = $p.StandardOutput.ReadToEndAsync()
+        $script:NativeErrTask = $p.StandardError.ReadToEndAsync()
+        $script:NativeLogFile = $LogFile
+    }
     if ($Wait) {
         if (-not $p) { return -1 }
         if (-not $p.WaitForExit($WaitMs)) {
@@ -442,7 +452,12 @@ function Install-WinDivertRuntime {
     if (-not (Test-Path -LiteralPath $dest)) {
         New-Item -ItemType Directory -Path $dest -Force | Out-Null
     }
-    foreach ($name in @('winws.exe', 'WinDivert.dll', 'WinDivert64.sys', 'cygwin1.dll')) {
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($n in @('winws.exe', 'WinDivert.dll', 'WinDivert64.sys', 'cygwin1.dll')) { [void]$names.Add($n) }
+    Get-ChildItem -LiteralPath $srcBin -Filter '*.bin' -File -ErrorAction SilentlyContinue | ForEach-Object {
+        [void]$names.Add($_.Name)
+    }
+    foreach ($name in $names) {
         $from = Join-Path $srcBin $name
         if (-not (Test-Path -LiteralPath $from)) { continue }
         $to = Join-Path $dest $name

@@ -16,7 +16,7 @@ cs = read("app/ZapretApp.cs")
 ok("Запустить всё", "Запустить всё" in cs)
 ok("Cursor EU tile", 'StatusTile("Cursor EU"' in cs)
 ok("no Cursor Europe button", "btnCursor" not in cs and "Cursor → Europe" not in cs)
-ok("version 1.1.53", read("utils/app.version").strip() == "1.1.53")
+ok("version 1.1.54", read("utils/app.version").strip() == "1.1.54")
 ok("spare nexus url", "link.nexus-freedom.online/api/sub/S-KN2RmwbSnqee5h" in read("telegram-vless/subscription.json"))
 ok("spare skips dummy endpoint", "0.0.0.0" in read("utils/sync-vless-config.ps1") and "SPARE=" in read("utils/sync-vless-config.ps1"))
 cursor_start = read("utils/launcher.ps1").split("function Start-CursorEurope", 1)[1].split("\nfunction ", 1)[0]
@@ -139,6 +139,16 @@ ok("direct MAX", "max.ru" in read("lists/list-direct-ru.txt") and "ws-api.oneme.
 ok("WinDivert staged to ProgramData", "Install-WinDivertRuntime" in common and "ProgramData" in common and "WinDivert64.sys" in common)
 ok("stuck WinDivert service reset", "sc.exe delete" in common and "'WinDivert'" in common)
 ok("launcher starts staged WinDivert", "Install-WinDivertRuntime" in read("utils/launcher.ps1"))
+ok("winws fake packets shipped", all((ROOT / "bin" / name).is_file() and (ROOT / "bin" / name).stat().st_size > 50 for name in (
+    "quic_initial_www_google_com.bin",
+    "tls_clienthello_www_google_com.bin",
+    "tls_clienthello_max_ru.bin",
+    "stun2.bin",
+    "ACTIVE_DISCORD_UDP.bin",
+    "ACTIVE_GAME_UDP.bin",
+)))
+ok("gitignore keeps fake packets", "bin/*.bin" not in read(".gitignore"))
+ok("winws start log", "winws-start.log" in read("utils/launcher.ps1") and "winws-start.log" in read("utils/export-diagnostics.ps1"))
 ok("clean-stale-install.ps1", (ROOT / "utils/clean-stale-install.ps1").is_file())
 ok("apply-update cleans stale", "clean-stale-install.ps1" in apply)
 ok("clean-stale empty dirs", "Sort-Object { $_.FullName.Length } -Descending" in read("utils/clean-stale-install.ps1"))

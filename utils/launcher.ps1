@@ -245,14 +245,52 @@ function Get-ZapretSteps {
                 $staged = Install-WinDivertRuntime -RootDir $rootDir
                 $exeToRun = if ($staged) { $staged } else { $winws }
                 $wd = Split-Path -Parent $exeToRun
-                $proc = Start-OtmenaNativeProcess -FilePath $exeToRun -Arguments $raw -WorkingDirectory $wd
+                if ($staged) {
+                    $toBin = $wd.TrimEnd('\') + '\'
+                    $binFull = (Join-Path $rootDir 'bin').TrimEnd('\') + '\'
+                    $raw = $raw.Replace($binFull, $toBin)
+                    try {
+                        $fso = New-Object -ComObject Scripting.FileSystemObject
+                        $binFolder = Join-Path $rootDir 'bin'
+                        if ($fso.FolderExists($binFolder)) {
+                            $shortBin = $fso.GetFolder($binFolder).ShortPath.TrimEnd('\') + '\'
+                            if ($shortBin -and $shortBin -ne $toBin) { $raw = $raw.Replace($shortBin, $toBin) }
+                        }
+                    } catch {}
+                }
+                $missing = New-Object System.Collections.Generic.List[string]
+                foreach ($m in [regex]::Matches($raw, '(?i)[^\s"]+\.bin')) {
+                    $binPath = $m.Value.Trim('"')
+                    if (-not (Test-Path -LiteralPath $binPath)) {
+                        $leaf = Split-Path -Leaf $binPath
+                        if (-not $missing.Contains($leaf)) { [void]$missing.Add($leaf) }
+                    }
+                }
+                if ($missing.Count -gt 0) {
+                    return @{ Success = $false; Detail = ('net faylov bin: ' + ($missing -join ', ')) }
+                }
+                $winwsLog = Join-Path $PSScriptRoot 'winws-start.log'
+                $proc = Start-OtmenaNativeProcess -FilePath $exeToRun -Arguments $raw -WorkingDirectory $wd -LogFile $winwsLog
                 Start-Sleep -Seconds 3
                 if (Test-WinwsRunning) {
                     $where = if ($staged) { 'WinDivert 2.2.2 iz C:\ProgramData\Otmena\bin' } else { 'winws.exe napryamuyu' }
                     return @{ Success = $true; Detail = $where }
                 }
                 $code = ''
-                if ($proc -and $proc.HasExited) { $code = [string]$proc.ExitCode }
+                $tail = ''
+                if ($proc -and $proc.HasExited) {
+                    $code = [string]$proc.ExitCode
+                    try {
+                        $tail = (([string]$script:NativeOutTask.Result) + ' ' + ([string]$script:NativeErrTask.Result))
+                        $tail = ($tail -replace '\s+', ' ').Trim()
+                        if ($tail.Length -gt 300) { $tail = $tail.Substring($tail.Length - 300) }
+                        $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') exit=$code $tail"
+                        [IO.File]::AppendAllText($winwsLog, $line + [Environment]::NewLine)
+                    } catch {}
+                }
+                if ($tail) {
+                    return @{ Success = $false; Detail = ("winws exit $code : $tail") }
+                }
                 if ($code -eq '1275') {
                     return @{ Success = $false; Detail = 'WinDivert zablokirovan politikoj (kod 1275). Antivirus ili Secure Boot.' }
                 }

@@ -1,6 +1,6 @@
-Otmena build 1.1.53
+Otmena build 1.1.54
 Date: 2026-11-18
-Zapret: Flowseal/zapret-discord-youtube 1.10.1
+Zapret: Flowseal/zapret-discord-youtube 1.10.1. Fake packets (quic/tls/stun/discord) ship in bin so an update does not wipe them and winws can start.
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
 VLESS: vpn.dance Lithuania 5.199.161.35 (Reality SNI www.google.com, until 23.11.2026)
 Spare: Nexus https://link.nexus-freedom.online/api/sub/S-KN2RmwbSnqee5h (skipped while the panel says the device limit is full)
