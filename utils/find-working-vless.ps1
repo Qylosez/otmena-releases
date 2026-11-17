@@ -44,10 +44,25 @@ function Stop-Xray {
 }
 
 function Test-CurlVia([string]$mode, [int]$port) {
+    $script:LastCurlCode = 'nocurl'
     if (-not (Get-Command curl.exe -ErrorAction SilentlyContinue)) { return $false }
     $proxyArgs = if ($mode -eq 'socks') { @('--socks5-hostname', "127.0.0.1:$port") } else { @('-x', "http://127.0.0.1:$port") }
     $code = & curl.exe -s -o NUL -w '%{http_code}' @proxyArgs 'https://api2.cursor.sh' --connect-timeout $TimeoutSec --max-time ($TimeoutSec + 2) 2>$null
+    $script:LastCurlCode = [string]$code
     return ($code -match '^(200|204|301|302|307|308)$')
+}
+
+function Test-RemoteTcpQuick([string]$address, [int]$port) {
+    if (-not $address -or $port -le 0) { return $false }
+    $client = New-Object System.Net.Sockets.TcpClient
+    try {
+        $iar = $client.BeginConnect($address, $port, $null, $null)
+        return ($iar.AsyncWaitHandle.WaitOne(1500, $false) -and $client.Connected)
+    } catch {
+        return $false
+    } finally {
+        try { $client.Close() } catch {}
+    }
 }
 
 function Start-XrayWait {
@@ -92,7 +107,7 @@ Copy-Item -LiteralPath $configFile -Destination $fullConfig -Force
 if (Test-Path -LiteralPath $metaFile) {
     Copy-Item -LiteralPath $metaFile -Destination $fullMeta -Force
 }
-$deadline = (Get-Date).AddSeconds(35)
+$deadline = (Get-Date).AddSeconds(50)
 $winnerIdx = -1
 $winnerMode = 'socks'
 $winnerLabel = ''
@@ -106,6 +121,7 @@ try {
         Write-ProbeLog 'full config already live'
         exit 0
     }
+    Write-ProbeLog ("full config not live http={0}" -f $script:LastCurlCode)
 
     # The full config already tried profile 0. Retrying it burns the whole
     # deadline on one dead address, so the other country is never tested.
@@ -138,17 +154,32 @@ try {
         try { $meta = Get-Content $metaFile -Raw | ConvertFrom-Json } catch {}
         $label = if ($meta -and $meta.profiles) { $meta.profiles[0] } else { "idx=$i" }
         Write-ProbeLog "try $label"
+        $udpProfile = $label -match '/hysteria'
+        $tcp = -1
+        if (-not $udpProfile -and $label -match '^([^:]+):(\d+)/') {
+            $tcp = [int](Test-RemoteTcpQuick $Matches[1] ([int]$Matches[2]))
+        }
+        if ($tcp -eq 0) {
+            Write-ProbeLog '  fail tcp=0 http=skip'
+            continue
+        }
+        $savedTimeout = $TimeoutSec
+        if ($udpProfile -and $TimeoutSec -lt 8) { $TimeoutSec = 8 }
         Stop-Xray
         if (-not (Start-XrayWait)) {
-            Write-ProbeLog '  xray not up'
+            $TimeoutSec = $savedTimeout
+            Write-ProbeLog ("  xray not up tcp={0}" -f $tcp)
             continue
         }
         if (Test-CurlVia 'http' 10809) {
             $winnerIdx = $i; $winnerMode = 'http'; $winnerLabel = $label
-            Write-ProbeLog '  OK http 10809'
+            Write-ProbeLog ("  OK http={0} tcp={1}" -f $script:LastCurlCode, $tcp)
             break
         }
-        Write-ProbeLog '  fail'
+        $why = ''
+        if ($script:LastCurlCode -eq '403') { $why = ' region-block' }
+        $TimeoutSec = $savedTimeout
+        Write-ProbeLog ("  fail http={0} tcp={1}{2}" -f $script:LastCurlCode, $tcp, $why)
     }
 
     if ($winnerIdx -lt 0) {

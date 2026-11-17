@@ -2,9 +2,9 @@
 <#
   Fetches the vpn.dance subscription (or uses a local cache) and writes
   telegram-vless\config.json for xray: SOCKS 10808 + HTTP 10809 + SOCKS 10810,
-  with Reality TCP / gRPC / WS outbounds. User traffic goes to one
-  profile (TCP with a short id, not port 443). A dead leastPing fallback
-  was answering every Cursor connection with HTTP 000.
+  with Reality TCP / gRPC / WS outbounds plus a Hysteria2 profile.
+  User traffic goes to one profile. A dead leastPing fallback was
+  answering every Cursor connection with HTTP 000.
 #>
 param(
     [switch]$Quiet,
@@ -42,6 +42,56 @@ function Get-QueryMap([string]$query) {
         $map[$k] = $v
     }
     return $map
+}
+
+function ConvertFrom-HysteriaUri([string]$raw) {
+    $line = $raw.Trim()
+    if ($line -notmatch '^hysteria2://') { return $null }
+    $noScheme = $line.Substring(12)
+    $hash = $noScheme.IndexOf('#')
+    $remark = ''
+    if ($hash -ge 0) {
+        $remark = [Uri]::UnescapeDataString($noScheme.Substring($hash + 1))
+        $noScheme = $noScheme.Substring(0, $hash)
+    }
+    $q = $noScheme.IndexOf('?')
+    $query = ''
+    $main = $noScheme
+    if ($q -ge 0) {
+        $query = $noScheme.Substring($q + 1)
+        $main = $noScheme.Substring(0, $q)
+    }
+    $main = $main.TrimEnd('/')
+    $at = $main.LastIndexOf('@')
+    if ($at -lt 0) { return $null }
+    $uuid = $main.Substring(0, $at)
+    $hostPort = $main.Substring($at + 1)
+    $colon = $hostPort.LastIndexOf(':')
+    if ($colon -lt 0) { return $null }
+    $address = $hostPort.Substring(0, $colon).Trim('[', ']')
+    $port = 0
+    if (-not [int]::TryParse($hostPort.Substring($colon + 1), [ref]$port)) { return $null }
+    $p = Get-QueryMap $query
+    $obfs = [string]$p['obfs']
+    if ($obfs -and $obfs -ne 'salamander') { return $null }
+    return [PSCustomObject]@{
+        Uuid         = $uuid
+        Address      = $address
+        Port         = $port
+        Type         = 'hysteria'
+        Security     = 'tls'
+        Sni          = $p['sni']
+        Fp           = 'chrome'
+        Pbk          = ''
+        Sid          = ''
+        Path         = '/'
+        Host         = ''
+        Service      = ''
+        Flow         = ''
+        Obfs         = $obfs
+        ObfsPassword = [string]$p['obfs-password']
+        Remark       = $remark
+    }
 }
 
 function ConvertFrom-VlessUri([string]$raw) {
@@ -133,6 +183,7 @@ function ConvertFrom-SubscriptionBody([string]$body) {
     $links = @()
     foreach ($line in ($text -split "[\r\n]+")) {
         $parsed = ConvertFrom-VlessUri $line
+        if (-not $parsed) { $parsed = ConvertFrom-HysteriaUri $line }
         if ($parsed) { $links += $parsed }
     }
     return $links
@@ -143,7 +194,51 @@ function Get-JsonString([string]$s) {
     return ($s | ConvertTo-Json -Compress)
 }
 
+function New-HysteriaOutboundJson($link, [string]$tag) {
+    $sni = if ($link.Sni) { $link.Sni } else { $link.Address }
+    $mask = ''
+    if ($link.Obfs -eq 'salamander' -and -not [string]::IsNullOrWhiteSpace([string]$link.ObfsPassword)) {
+        $mask = @"
+,
+      "finalmask": {
+        "udp": [
+          {
+            "type": "salamander",
+            "settings": {
+              "password": $(Get-JsonString $link.ObfsPassword)
+            }
+          }
+        ]
+      }
+"@
+    }
+    return @"
+    {
+      "tag": "$tag",
+      "protocol": "hysteria",
+      "settings": {
+        "version": 2,
+        "address": $(Get-JsonString $link.Address),
+        "port": $($link.Port)
+      },
+      "streamSettings": {
+        "network": "hysteria",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": $(Get-JsonString $sni),
+          "alpn": ["h3"]
+        },
+        "hysteriaSettings": {
+          "version": 2,
+          "auth": $(Get-JsonString $link.Uuid)
+        }$mask
+      }
+    }
+"@
+}
+
 function New-OutboundJson($link, [string]$tag) {
+    if ($link.Type -eq 'hysteria') { return (New-HysteriaOutboundJson $link $tag) }
     $idJson = Get-JsonString $link.Uuid
     $addrJson = Get-JsonString $link.Address
     $enc = '"encryption": "none"'
@@ -195,6 +290,13 @@ $hostLine        "path": $(Get-JsonString $link.Path)
       }
 "@)
     }
+    # Split the TLS ClientHello. A filtered network often drops a whole
+    # Reality handshake to a foreign IP while a fragmented hello still passes.
+    $streamParts.Add(@'
+      "sockopt": {
+        "dialerProxy": "fragment"
+      }
+'@)
     $stream = ($streamParts -join ",`n")
     return @"
     {
@@ -218,6 +320,7 @@ function Get-LinkRank($link) {
         'tcp' { $rank = 10 }
         'ws' { $rank = 20 }
         'grpc' { $rank = 30 }
+        'hysteria' { $rank = 60 }
     }
     if ($link.Security -eq 'reality' -and [string]::IsNullOrWhiteSpace([string]$link.Sid)) { $rank += 25 }
     return $rank
@@ -269,6 +372,7 @@ function Get-TagForLink($link, $used) {
     $base = switch ($link.Type) {
         'grpc' { 'proxy-grpc' }
         'ws' { 'proxy-ws' }
+        'hysteria' { 'proxy-hy' }
         default { 'proxy-tcp' }
     }
     $tag = $base
@@ -393,7 +497,7 @@ $sorted += @($links | Where-Object { $prefer -notcontains $_.Type })
 # unique by type+port+address
 $seen = @{}
 $unique = @()
-$supported = @('tcp', 'grpc', 'ws')
+$supported = @('tcp', 'grpc', 'ws', 'hysteria')
 foreach ($l in $sorted) {
     if ($supported -notcontains $l.Type) { continue }
     $k = '{0}|{1}|{2}' -f $l.Address, $l.Port, $l.Type
@@ -431,7 +535,20 @@ if ($Single -and $selectorTags.Count -gt 1) {
 
 $fallback = $selectorTags[0]
 $selectorJson = ($selectorTags | ForEach-Object { Get-JsonString $_ }) -join ', '
-$outboundsJoined = ($outboundJson -join ",`n")
+$fragmentJson = @'
+    {
+      "tag": "fragment",
+      "protocol": "freedom",
+      "settings": {
+        "fragment": {
+          "packets": "tlshello",
+          "length": "100-200",
+          "interval": "10-20"
+        }
+      }
+    }
+'@
+$outboundsJoined = (($outboundJson -join ",`n") + ",`n" + $fragmentJson)
 $probe = Get-JsonString (Get-ProbeUrl)
 # leastPing holds the first packets on fallback (often :443) until observatory
 # finishes. From a filtered network that fallback never answers, so Cursor
