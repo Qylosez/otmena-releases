@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "83.228.228.224",
+            "address": "200.234.115.112",
             "port": 443,
             "users": [
               {
-                "id": "7f762d13-e977-4165-9230-c09b867565ea",
+                "id": "8e185abc-f81b-4227-9774-6de6bafb08c6",
                 "encryption": "none"
               }
             ]
@@ -85,10 +85,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "api-maps.yandex.ru",
+          "serverName": "www.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "dde66ef1"
+          "shortId": "d7e1abac"
         },
         "sockopt": {
           "dialerProxy": "fragment"
@@ -101,11 +101,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "83.228.228.224",
+            "address": "200.234.115.112",
             "port": 8444,
             "users": [
               {
-                "id": "7f762d13-e977-4165-9230-c09b867565ea",
+                "id": "8e185abc-f81b-4227-9774-6de6bafb08c6",
                 "encryption": "none"
               }
             ]
@@ -116,10 +116,10 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "api-maps.yandex.ru",
+          "serverName": "www.google.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "189cfa69"
+          "shortId": "d7e1a111"
         },
         "sockopt": {
           "dialerProxy": "fragment"
@@ -128,6 +128,106 @@
     },
     {
       "tag": "proxy-ws",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "200.234.115.112",
+            "port": 8447,
+            "users": [
+              {
+                "id": "8e185abc-f81b-4227-9774-6de6bafb08c6",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "ws",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": "wdd38a208.devs.dance",
+          "allowInsecure": false,
+          "fingerprint": "qq"
+        },
+        "wsSettings": {
+          "host": "wdd38a208.devs.dance",
+          "path": "/ws"
+        },
+        "sockopt": {
+          "dialerProxy": "fragment"
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp-3",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "195.15.240.10",
+            "port": 443,
+            "users": [
+              {
+                "id": "2d7f94ec-aaad-4e1d-9b1a-834da4ef8ad9",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "video.yahoo.com",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "3decb73e"
+        },
+        "sockopt": {
+          "dialerProxy": "fragment"
+        }
+      }
+    },
+    {
+      "tag": "proxy-grpc",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "200.234.115.112",
+            "port": 8443,
+            "users": [
+              {
+                "id": "8e185abc-f81b-4227-9774-6de6bafb08c6",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "grpc",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "www.google.com",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "d7e1a111"
+        },
+        "grpcSettings": {
+          "serviceName": "grpcservice",
+          "multiMode": false
+        },
+        "sockopt": {
+          "dialerProxy": "fragment"
+        }
+      }
+    },
+    {
+      "tag": "proxy-ws-2",
       "protocol": "vless",
       "settings": {
         "vnext": [
@@ -154,75 +254,6 @@
         "wsSettings": {
           "host": "w14f2e574.devs.dance",
           "path": "/ws"
-        },
-        "sockopt": {
-          "dialerProxy": "fragment"
-        }
-      }
-    },
-    {
-      "tag": "proxy-ws-2",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "83.228.228.224",
-            "port": 8447,
-            "users": [
-              {
-                "id": "7f762d13-e977-4165-9230-c09b867565ea",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "ws",
-        "security": "tls",
-        "tlsSettings": {
-          "serverName": "we88d1ad5.devs.dance",
-          "allowInsecure": false,
-          "fingerprint": "qq"
-        },
-        "wsSettings": {
-          "host": "we88d1ad5.devs.dance",
-          "path": "/ws"
-        },
-        "sockopt": {
-          "dialerProxy": "fragment"
-        }
-      }
-    },
-    {
-      "tag": "proxy-grpc",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "83.228.228.224",
-            "port": 8443,
-            "users": [
-              {
-                "id": "7f762d13-e977-4165-9230-c09b867565ea",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "grpc",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "api-maps.yandex.ru",
-          "fingerprint": "qq",
-          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "d7e1a2bb"
-        },
-        "grpcSettings": {
-          "serviceName": "grpcservice",
-          "multiMode": false
         },
         "sockopt": {
           "dialerProxy": "fragment"
@@ -333,5 +364,5 @@
       }
     ]
   },
-  "remarks": "Otmena | vpn.dance | Switzerland 83.228.228.224 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
+  "remarks": "Otmena | vpn.dance | Switzerland 200.234.115.112 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
 }

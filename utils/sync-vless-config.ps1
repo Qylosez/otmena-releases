@@ -323,6 +323,9 @@ function Get-LinkRank($link) {
         'hysteria' { $rank = 60 }
     }
     if ($link.Security -eq 'reality' -and [string]::IsNullOrWhiteSpace([string]$link.Sid)) { $rank += 25 }
+    # The selected country is the UUID that appears most often. Auto-location
+    # and the YouTube exit use other UUIDs and must not become the Cursor route.
+    if ($script:PrimaryUuid -and [string]$link.Uuid -and ([string]$link.Uuid -ne [string]$script:PrimaryUuid)) { $rank += 15 }
     return $rank
 }
 
@@ -529,6 +532,18 @@ foreach ($l in $sorted) {
     if ($seen.ContainsKey($k)) { continue }
     $seen[$k] = $true
     $unique += $l
+}
+$script:PrimaryUuid = ''
+$uuidCount = @{}
+foreach ($l in $links) {
+    $id = [string]$l.Uuid
+    if (-not $id) { continue }
+    if (-not $uuidCount.ContainsKey($id)) { $uuidCount[$id] = 0 }
+    $uuidCount[$id]++
+}
+$bestN = -1
+foreach ($id in $uuidCount.Keys) {
+    if ($uuidCount[$id] -gt $bestN) { $bestN = $uuidCount[$id]; $script:PrimaryUuid = $id }
 }
 $unique = @($unique | Sort-Object @{ Expression = { Get-LinkRank $_ } }, @{ Expression = { [string]$_.Address } }, @{ Expression = { [int]$_.Port } })
 
