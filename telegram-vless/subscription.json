@@ -7,5 +7,5 @@
     "grpc"
   ],
   "probeUrl": "https://api2.cursor.sh",
-  "notes": "vpn.dance VLESS Switzerland 200.234.115.112 (Reality SNI www.google.com, until 23.11.2026). Cursor route is plain TCP 8444 sid d7e1a111. TCP 443 sid d7e1abac stays fragmented. gRPC 8443 sid d7e1a111, WS-TLS 8447 wdd38a208.devs.dance, auto Switzerland 195.15.240.10 TCP 443 sid 3decb73e SNI video.yahoo.com, YouTube 194.55.244.117 WS 8447 w14f2e574.devs.dance. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
+  "notes": "vpn.dance VLESS Germany 140.82.33.11 (Reality SNI video.yahoo.com, until 23.11.2026). Cursor route is plain TCP 8444 sid dde66ef1. TCP 443 has an empty short id and stays last. gRPC 8443 sid dde66ef1, WS-TLS 8447 w0099c7d9.devs.dance, auto 83.228.231.183 TCP 443 sid 189cfa69 SNI www.vk.com, YouTube 194.55.244.117 WS 8447 w14f2e574.devs.dance. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
 }
