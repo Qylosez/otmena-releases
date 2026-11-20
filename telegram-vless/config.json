@@ -344,7 +344,13 @@
       {
         "type": "field",
         "inboundTag": [
-          "socks-tg",
+          "socks-tg"
+        ],
+        "outboundTag": "proxy-ws-2"
+      },
+      {
+        "type": "field",
+        "inboundTag": [
           "http-cursor",
           "socks-cursor"
         ],

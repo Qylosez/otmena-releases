@@ -656,15 +656,44 @@ $directRule
   },
 "@
 } else {
-    $routingInner = @"
-    "domainStrategy": "IPIfNonMatch",
-    "rules": [
-$directRule
+    # The YouTube exit is a different server. It answers 403 for Cursor, so it
+    # must not carry Cursor, but it still completes HTTPS when the Germany IP
+    # is blackholed. Telegram stays on that exit. Cursor stays on the EU route.
+    $relayTag = ''
+    for ($ri = 0; $ri -lt $unique.Count -and $ri -lt $selectorTags.Count; $ri++) {
+        $rl = $unique[$ri]
+        if ($rl.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$rl.Uuid -and ([string]$rl.Uuid -ne [string]$script:PrimaryUuid)) {
+            $relayTag = $selectorTags[$ri]
+            break
+        }
+    }
+    if ($relayTag -and $relayTag -ne $fallback) {
+        $proxyRules = @"
+      {
+        "type": "field",
+        "inboundTag": ["socks-tg"],
+        "outboundTag": $(Get-JsonString $relayTag)
+      },
+      {
+        "type": "field",
+        "inboundTag": ["http-cursor", "socks-cursor"],
+        "outboundTag": $(Get-JsonString $fallback)
+      }
+"@
+    } else {
+        $proxyRules = @"
       {
         "type": "field",
         "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],
         "outboundTag": $(Get-JsonString $fallback)
       }
+"@
+    }
+    $routingInner = @"
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+$directRule
+$proxyRules
     ]
 "@
     $observatoryBlock = ''

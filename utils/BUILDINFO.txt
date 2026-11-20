@@ -1,11 +1,12 @@
-Otmena build 1.1.59
+Otmena build 1.1.60
 Date: 2026-11-20
 Zapret: Flowseal/zapret-discord-youtube 1.10.1. Fake packets (quic/tls/stun/discord) ship in bin so an update does not wipe them and winws can start.
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
 VLESS: vpn.dance Germany 64.118.156.251 (Reality SNI api-maps.yandex.ru, until 23.11.2026)
 Spare: Nexus https://link.nexus-freedom.online/api/sub/S-KN2RmwbSnqee5h (skipped while the panel says the device limit is full)
 Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
-Cursor: route through Germany TCP 8444 (plain ClientHello, short id 189cfa69, SNI api-maps.yandex.ru). TCP 443 and gRPC on this server do not open api2.cursor.sh. If 8444 is blocked, the probe tries auto 185.188.146.117 before the YouTube exit. A 403 is a region block, not a working tunnel. If the first curl succeeds and the next one fails, the profile search still runs.
+Cursor: route through Germany TCP 8444 (plain ClientHello, short id 189cfa69, SNI api-maps.yandex.ru). TCP 443 and gRPC on this server do not open api2.cursor.sh. A first HTTP 000 on a live TCP port is retried once before fragment modes. If 8444 is blocked, the probe tries auto 185.188.146.117 before the YouTube exit. A 403 is a region block, not a working tunnel. If the first curl succeeds and the next one fails, the profile search still runs. A dead tunnel removes the Cursor proxy in work mode too, after a resync and a second probe. Chaining the Germany server through the YouTube exit does not open api2.
+Telegram: SOCKS 10808 uses the YouTube exit 194.55.244.117 so Telegram keeps working when the Germany IP stops answering. Cursor does not use that exit.
 Telegram: insert proxy-dag.ru and SOCKS via Telegram.exe even when tg:// is taken by the Store app
 Telegram spare MTProto list for manual entry: data.mtproxy.cc, mtpvideo.my, 138.124.127.179
 Telegram: if proxy-dag.ru:443 is closed, leave it alone and add SOCKS 127.0.0.1:10808. Do not send a disable command

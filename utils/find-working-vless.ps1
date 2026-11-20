@@ -103,6 +103,24 @@ function Invoke-HandshakeRetry([int]$index) {
     return $false
 }
 
+function Invoke-SameRetry {
+    # TCP can be up and the first curl still return 000. The next try of the
+    # same config answered 200 on Germany :8444, so retry once before fragment.
+    if ((Get-Date) -gt $deadline) { return $false }
+    Write-ProbeLog '  retry same'
+    Stop-Xray
+    if (-not (Start-XrayWait)) {
+        Write-ProbeLog '  xray not up retry-same'
+        return $false
+    }
+    if (Test-CurlVia 'http' 10809) {
+        Write-ProbeLog ("  OK http={0} retry-same" -f $script:LastCurlCode)
+        return $true
+    }
+    Write-ProbeLog ("  fail http={0} retry-same" -f $script:LastCurlCode)
+    return $false
+}
+
 function Get-ProfileCount {
     if (-not (Test-Path $metaFile)) { return 0 }
     try {
@@ -164,6 +182,12 @@ try {
         exit 0
     } else {
         Write-ProbeLog ("full config not live http={0}" -f $script:LastCurlCode)
+        if (-not $fullTcpDead -and $script:LastCurlCode -eq '000' -and (Invoke-SameRetry)) {
+            Write-Output 'VLESS_PROFILE=full'
+            Write-Output 'VLESS_MODE=http'
+            Write-Output 'WORKING=1'
+            exit 0
+        }
         if (-not $fullTcpDead -and $script:LastCurlCode -eq '000' -and (Invoke-HandshakeRetry 0)) {
             $winnerIdx = 0
             $winnerMode = 'http'
@@ -230,6 +254,10 @@ try {
         if ($script:LastCurlCode -eq '403') { $why = ' region-block' }
         $TimeoutSec = $savedTimeout
         Write-ProbeLog ("  fail http={0} tcp={1}{2}" -f $script:LastCurlCode, $tcp, $why)
+        if ($tcp -eq 1 -and $script:LastCurlCode -eq '000' -and -not $udpProfile -and (Invoke-SameRetry)) {
+            $winnerIdx = $i; $winnerMode = 'http'; $winnerLabel = $label
+            break
+        }
         if ($tcp -eq 1 -and $script:LastCurlCode -eq '000' -and -not $udpProfile -and (Invoke-HandshakeRetry $i)) {
             $winnerIdx = $i; $winnerMode = 'http'; $winnerLabel = $label
             break

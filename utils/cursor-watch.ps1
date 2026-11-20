@@ -45,15 +45,19 @@ while ($true) {
             if (Get-CursorTunnelEndpoint) {
                 Enable-CursorTunnelProxy -Quiet | Out-Null
                 $deadStreak = 0
+            } else {
+                Write-WatchLog 'tunnel dead -> sync and probe'
+                & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
+                & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet -TimeoutSec 4 | Out-Null
+                if (Get-CursorTunnelEndpoint) {
+                    Enable-CursorTunnelProxy -Quiet | Out-Null
+                    $deadStreak = 0
+                } else {
+                    Write-WatchLog 'probe empty -> snimayu proksi cursora'
+                    Disable-CursorTunnelProxy -Quiet
+                    $deadStreak = 0
+                }
             }
-        } elseif ($deadStreak -eq 6) {
-            Write-WatchLog 'tunnel dead -> restart xray'
-            & (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
-        }
-        if ($deadStreak -ge 8 -and -not (Test-WorkModeEnabled)) {
-            Write-WatchLog 'proxy set but tunnel dead -> disable'
-            Disable-CursorTunnelProxy -Quiet
-            $deadStreak = 0
         }
     }
     elseif ($state.enabledByOtmena -and $ep -and -not $hasProxy) {

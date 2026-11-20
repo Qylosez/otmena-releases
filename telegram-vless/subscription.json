@@ -7,5 +7,5 @@
     "grpc"
   ],
   "probeUrl": "https://api2.cursor.sh",
-  "notes": "vpn.dance VLESS Germany 64.118.156.251 (Reality SNI api-maps.yandex.ru, until 23.11.2026). Cursor route is plain TCP 8444 sid 189cfa69. TCP 443 sid d7e1abac does not answer. gRPC 8443 sid dde66ef1, WS-TLS 8447 wd9691708.devs.dance, auto 185.188.146.117 TCP 443 sid d7e1a2bb SNI www.vk.com, YouTube 194.55.244.117 WS 8447 w14f2e574.devs.dance. SOCKS 10808, HTTP 10809, SOCKS 10810. RU sites go direct."
+  "notes": "vpn.dance VLESS Germany 64.118.156.251 (Reality SNI api-maps.yandex.ru, until 23.11.2026). Cursor route is plain TCP 8444 sid 189cfa69. TCP 443 sid d7e1abac does not answer. gRPC 8443 sid dde66ef1, WS-TLS 8447 wd9691708.devs.dance, auto 185.188.146.117 TCP 443 sid d7e1a2bb SNI www.vk.com. Telegram SOCKS 10808 stays on YouTube 194.55.244.117 WS 8447 w14f2e574.devs.dance so a dead Germany IP does not take Telegram down. That exit returns 403 for Cursor and is not the Cursor route. HTTP 10809, SOCKS 10810. RU sites go direct."
 }
