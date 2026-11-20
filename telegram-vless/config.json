@@ -70,11 +70,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "140.82.33.11",
+            "address": "64.118.156.251",
             "port": 8444,
             "users": [
               {
-                "id": "9856dcb9-713b-475c-a83e-b696f684012c",
+                "id": "4a64644f-d87c-4175-8fec-91befea27cde",
                 "encryption": "none"
               }
             ]
@@ -85,10 +85,41 @@
         "network": "tcp",
         "security": "reality",
         "realitySettings": {
-          "serverName": "video.yahoo.com",
+          "serverName": "api-maps.yandex.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "dde66ef1"
+          "shortId": "189cfa69"
+        }
+      }
+    },
+    {
+      "tag": "proxy-tcp-2",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "64.118.156.251",
+            "port": 443,
+            "users": [
+              {
+                "id": "4a64644f-d87c-4175-8fec-91befea27cde",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "api-maps.yandex.ru",
+          "fingerprint": "qq",
+          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
+          "shortId": "d7e1abac"
+        },
+        "sockopt": {
+          "dialerProxy": "fragment"
         }
       }
     },
@@ -98,11 +129,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "140.82.33.11",
+            "address": "64.118.156.251",
             "port": 8447,
             "users": [
               {
-                "id": "9856dcb9-713b-475c-a83e-b696f684012c",
+                "id": "4a64644f-d87c-4175-8fec-91befea27cde",
                 "encryption": "none"
               }
             ]
@@ -113,13 +144,13 @@
         "network": "ws",
         "security": "tls",
         "tlsSettings": {
-          "serverName": "w0099c7d9.devs.dance",
+          "serverName": "wd9691708.devs.dance",
           "allowInsecure": false,
           "fingerprint": "qq"
         },
         "wsSettings": {
           "path": "/ws",
-          "host": "w0099c7d9.devs.dance"
+          "host": "wd9691708.devs.dance"
         }
       }
     },
@@ -129,11 +160,11 @@
       "settings": {
         "vnext": [
           {
-            "address": "140.82.33.11",
+            "address": "64.118.156.251",
             "port": 8443,
             "users": [
               {
-                "id": "9856dcb9-713b-475c-a83e-b696f684012c",
+                "id": "4a64644f-d87c-4175-8fec-91befea27cde",
                 "encryption": "none"
               }
             ]
@@ -144,7 +175,7 @@
         "network": "grpc",
         "security": "reality",
         "realitySettings": {
-          "serverName": "video.yahoo.com",
+          "serverName": "api-maps.yandex.ru",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
           "shortId": "dde66ef1"
@@ -156,16 +187,16 @@
       }
     },
     {
-      "tag": "proxy-tcp-2",
+      "tag": "proxy-tcp-3",
       "protocol": "vless",
       "settings": {
         "vnext": [
           {
-            "address": "83.228.231.183",
+            "address": "185.188.146.117",
             "port": 443,
             "users": [
               {
-                "id": "093609bb-7001-4f34-a17c-7aecd2f6cbb4",
+                "id": "1065114e-f819-4c4b-bf34-348c67df7fdc",
                 "encryption": "none"
               }
             ]
@@ -179,7 +210,7 @@
           "serverName": "www.vk.com",
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
-          "shortId": "189cfa69"
+          "shortId": "d7e1a2bb"
         },
         "sockopt": {
           "dialerProxy": "fragment"
@@ -214,36 +245,6 @@
         "wsSettings": {
           "path": "/ws",
           "host": "w14f2e574.devs.dance"
-        }
-      }
-    },
-    {
-      "tag": "proxy-tcp-3",
-      "protocol": "vless",
-      "settings": {
-        "vnext": [
-          {
-            "address": "140.82.33.11",
-            "port": 443,
-            "users": [
-              {
-                "id": "9856dcb9-713b-475c-a83e-b696f684012c",
-                "encryption": "none"
-              }
-            ]
-          }
-        ]
-      },
-      "streamSettings": {
-        "network": "tcp",
-        "security": "reality",
-        "realitySettings": {
-          "serverName": "video.yahoo.com",
-          "fingerprint": "qq",
-          "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc"
-        },
-        "sockopt": {
-          "dialerProxy": "fragment"
         }
       }
     },
@@ -351,5 +352,5 @@
       }
     ]
   },
-  "remarks": "Otmena | vpn.dance | Germany 140.82.33.11:8444 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
+  "remarks": "Otmena | vpn.dance | Germany 64.118.156.251:8444 | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810"
 }

@@ -654,6 +654,31 @@ function Test-SecretNet {
     return $false
 }
 
+function Invoke-CursorProfileSearch {
+    Write-Info 'Cursor Europe: api2.cursor.sh ne otvechaet, ishchu drugoj profil vpn.dance...'
+    $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet -TimeoutSec 4 2>&1 | Out-String
+    if ($probe -match 'WORKING=1') {
+        $label = 'profil'
+        if ($probe -match 'VLESS_PROFILE=(\S+)') { $label = $Matches[1] }
+        Write-Ok ("vpn.dance: rabochij profil {0}" -f $label)
+        return $true
+    }
+    $tried = ''
+    $metaPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'telegram-vless\subscription.meta.json'
+    if (Test-Path -LiteralPath $metaPath) {
+        try {
+            $metaNow = Get-Content -LiteralPath $metaPath -Raw | ConvertFrom-Json
+            if ($metaNow.profiles) { $tried = [string](@($metaNow.profiles) -join ', ') }
+        } catch {}
+    }
+    if ($tried) {
+        Write-Warn ("vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh ({0})" -f $tried)
+    } else {
+        Write-Warn 'vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh s etoj seti'
+    }
+    return $false
+}
+
 function Start-CursorEurope {
     Write-Info 'Cursor Europe: tunnel + proksi...'
     # An open local port is not a working tunnel. HTTP 000 means xray is up
@@ -661,30 +686,19 @@ function Start-CursorEurope {
     $httpUp = Test-PortListen 10809
     $live = $httpUp -and (Test-EndpointLive -Mode http -Port 10809)
     if (-not $live) {
-        Write-Info 'Cursor Europe: api2.cursor.sh ne otvechaet, ishchu drugoj profil vpn.dance...'
-        $probe = & (Join-Path $PSScriptRoot 'find-working-vless.ps1') -Quiet -TimeoutSec 4 2>&1 | Out-String
-        if ($probe -match 'WORKING=1') {
-            $label = 'profil'
-            if ($probe -match 'VLESS_PROFILE=(\S+)') { $label = $Matches[1] }
-            Write-Ok ("vpn.dance: rabochij profil {0}" -f $label)
-        } else {
-            $tried = ''
-            $metaPath = Join-Path (Split-Path $PSScriptRoot -Parent) 'telegram-vless\subscription.meta.json'
-            if (Test-Path -LiteralPath $metaPath) {
-                try {
-                    $metaNow = Get-Content -LiteralPath $metaPath -Raw | ConvertFrom-Json
-                    if ($metaNow.profiles) { $tried = [string](@($metaNow.profiles) -join ', ') }
-                } catch {}
-            }
-            if ($tried) {
-                Write-Warn ("vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh ({0})" -f $tried)
-            } else {
-                Write-Warn 'vpn.dance: ni odin profil ne otkryvaet api2.cursor.sh s etoj seti'
-            }
-        }
+        Invoke-CursorProfileSearch | Out-Null
     }
     if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
         return $true
+    }
+    # One curl can return 200 and the next already 000. That used to skip
+    # the profile search and leave Cursor without a proxy.
+    if ($live) {
+        Write-Info 'Cursor Europe: pervyj otvet ne uderzhalsya, ishchu profil eshchyo raz...'
+        Invoke-CursorProfileSearch | Out-Null
+        if (Enable-CursorTunnelProxy -Quiet:$Quiet -RestartCursor) {
+            return $true
+        }
     }
     return $false
 }
