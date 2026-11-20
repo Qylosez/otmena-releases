@@ -76,6 +76,33 @@ function Start-XrayWait {
     return ((Test-PortListen 10808) -and (Test-PortListen 10809))
 }
 
+function Invoke-HandshakeRetry([int]$index) {
+    # The first try already used the normal handshake. A hung curl (tcp is up,
+    # HTTP 000) is retried plain and as 1-3 byte fragments before the next server.
+    $raw = ''
+    try { $raw = Get-Content -LiteralPath $configFile -Raw } catch {}
+    $modes = @('off', 'tiny')
+    if ($raw -notmatch 'dialerProxy' ) { $modes = @('tiny') }
+    elseif ($raw -match '"length": "1-3"') { $modes = @('off') }
+    foreach ($mode in $modes) {
+        if ((Get-Date) -gt $deadline) { break }
+        & $syncScript -Quiet -Offline -ProfileIndex $index -Fragment $mode 2>$null | Out-Null
+        Write-ProbeLog "  retry fragment=$mode"
+        Stop-Xray
+        if (-not (Start-XrayWait)) {
+            Write-ProbeLog "  xray not up fragment=$mode"
+            continue
+        }
+        if (Test-CurlVia 'http' 10809) {
+            $script:WinnerFragment = $mode
+            Write-ProbeLog ("  OK http={0} fragment={1}" -f $script:LastCurlCode, $mode)
+            return $true
+        }
+        Write-ProbeLog ("  fail http={0} fragment={1}" -f $script:LastCurlCode, $mode)
+    }
+    return $false
+}
+
 function Get-ProfileCount {
     if (-not (Test-Path $metaFile)) { return 0 }
     try {
@@ -111,6 +138,7 @@ $deadline = (Get-Date).AddSeconds(50)
 $winnerIdx = -1
 $winnerMode = 'socks'
 $winnerLabel = ''
+$script:WinnerFragment = 'auto'
 
 $metaAll = $null
 try { $metaAll = Get-Content $metaFile -Raw | ConvertFrom-Json } catch {}
@@ -136,6 +164,11 @@ try {
         exit 0
     } else {
         Write-ProbeLog ("full config not live http={0}" -f $script:LastCurlCode)
+        if (-not $fullTcpDead -and $script:LastCurlCode -eq '000' -and (Invoke-HandshakeRetry 0)) {
+            $winnerIdx = 0
+            $winnerMode = 'http'
+            $winnerLabel = [string]$profileList[0]
+        }
     }
 
     # The full config already tried profile 0. Retrying it burns the whole
@@ -160,6 +193,7 @@ try {
     Write-ProbeLog ("order other-address-first " + ($tryOrder -join ','))
 
     foreach ($i in $tryOrder) {
+        if ($winnerIdx -ge 0) { break }
         if ((Get-Date) -gt $deadline) {
             Write-ProbeLog 'deadline, stop scanning'
             break
@@ -196,6 +230,10 @@ try {
         if ($script:LastCurlCode -eq '403') { $why = ' region-block' }
         $TimeoutSec = $savedTimeout
         Write-ProbeLog ("  fail http={0} tcp={1}{2}" -f $script:LastCurlCode, $tcp, $why)
+        if ($tcp -eq 1 -and $script:LastCurlCode -eq '000' -and -not $udpProfile -and (Invoke-HandshakeRetry $i)) {
+            $winnerIdx = $i; $winnerMode = 'http'; $winnerLabel = $label
+            break
+        }
     }
 
     if ($winnerIdx -lt 0) {
@@ -215,7 +253,11 @@ try {
         exit 1
     }
 
-    & $syncScript -Quiet -Offline -ProfileIndex $winnerIdx 2>$null | Out-Null
+    if ($script:WinnerFragment -and $script:WinnerFragment -ne 'auto') {
+        & $syncScript -Quiet -Offline -ProfileIndex $winnerIdx -Fragment $script:WinnerFragment 2>$null | Out-Null
+    } else {
+        & $syncScript -Quiet -Offline -ProfileIndex $winnerIdx 2>$null | Out-Null
+    }
     Stop-Xray
     if (-not (Start-XrayWait)) {
         Write-Output 'VLESS_PROBE=none'

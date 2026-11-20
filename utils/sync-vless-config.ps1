@@ -10,7 +10,8 @@ param(
     [switch]$Quiet,
     [switch]$Offline,
     [switch]$Single,
-    [int]$ProfileIndex = -1
+    [int]$ProfileIndex = -1,
+    [string]$Fragment = 'auto'
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
@@ -290,13 +291,20 @@ $hostLine        "path": $(Get-JsonString $link.Path)
       }
 "@)
     }
-    # Split the TLS ClientHello. A filtered network often drops a whole
-    # Reality handshake to a foreign IP while a fragmented hello still passes.
-    $streamParts.Add(@'
+    # Port 443 is where the filter drops a whole ClientHello, so split it.
+    # On 8444/8443 the TCP handshake already succeeds and a split hello just
+    # hangs until curl gives up, so those ports go out in one piece.
+    $fragThis = $false
+    if ($Fragment -eq 'force' -or $Fragment -eq 'tiny') { $fragThis = $true }
+    elseif ($Fragment -ne 'off' -and [int]$link.Port -eq 443) { $fragThis = $true }
+    if ($fragThis) {
+        $script:NeedFragment = $true
+        $streamParts.Add(@'
       "sockopt": {
         "dialerProxy": "fragment"
       }
 '@)
+    }
     $stream = ($streamParts -join ",`n")
     return @"
     {
@@ -323,6 +331,8 @@ function Get-LinkRank($link) {
         'hysteria' { $rank = 60 }
     }
     if ($link.Security -eq 'reality' -and [string]::IsNullOrWhiteSpace([string]$link.Sid)) { $rank += 25 }
+    # Port 443 is the filtered one. Prefer another TCP port of the same server.
+    if ([string]$link.Type -eq 'tcp' -and [int]$link.Port -eq 443) { $rank += 8 }
     # The selected country is the UUID that appears most often. Auto-location
     # and the YouTube exit use other UUIDs and must not become the Cursor route.
     if ($script:PrimaryUuid -and [string]$link.Uuid -and ([string]$link.Uuid -ne [string]$script:PrimaryUuid)) { $rank += 15 }
@@ -560,6 +570,7 @@ if ($ProfileIndex -ge 0 -and $ProfileIndex -lt $unique.Count) {
     }
 }
 
+$script:NeedFragment = $false
 $usedTags = New-Object System.Collections.Generic.List[string]
 $outboundJson = @()
 $selectorTags = @()
@@ -575,20 +586,27 @@ if ($Single -and $selectorTags.Count -gt 1) {
 
 $fallback = $selectorTags[0]
 $selectorJson = ($selectorTags | ForEach-Object { Get-JsonString $_ }) -join ', '
-$fragmentJson = @'
+$fragLen = '100-200'
+$fragIv = '10-20'
+if ($Fragment -eq 'tiny') { $fragLen = '1-3'; $fragIv = '1-5' }
+$fragmentJson = @"
     {
       "tag": "fragment",
       "protocol": "freedom",
       "settings": {
         "fragment": {
           "packets": "tlshello",
-          "length": "100-200",
-          "interval": "10-20"
+          "length": "$fragLen",
+          "interval": "$fragIv"
         }
       }
     }
-'@
-$outboundsJoined = (($outboundJson -join ",`n") + ",`n" + $fragmentJson)
+"@
+if ($script:NeedFragment) {
+    $outboundsJoined = (($outboundJson -join ",`n") + ",`n" + $fragmentJson)
+} else {
+    $outboundsJoined = ($outboundJson -join ",`n")
+}
 $probe = Get-JsonString (Get-ProbeUrl)
 # leastPing holds the first packets on fallback (often :443) until observatory
 # finishes. From a filtered network that fallback never answers, so Cursor

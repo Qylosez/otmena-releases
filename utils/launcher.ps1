@@ -89,6 +89,36 @@ function Stop-Winws {
     Start-Sleep -Seconds 1
 }
 
+function Update-VlessIpExclude {
+    # Reality to the VPN server uses SNI www.google.com. The Google filter
+    # would inject a fake ClientHello and the handshake never finishes.
+    $cfgPath = Join-Path $rootDir 'telegram-vless\config.json'
+    $exclude = Join-Path $rootDir 'lists\ipset-exclude-user.txt'
+    if (-not (Test-Path $cfgPath) -or -not (Test-Path $exclude)) { return }
+    $ips = New-Object System.Collections.Generic.List[string]
+    try {
+        $cfg = Get-Content -LiteralPath $cfgPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($ob in @($cfg.outbounds)) {
+            foreach ($hop in @($ob.settings.vnext)) {
+                $addr = [string]$hop.address
+                if ($addr -match '^\d{1,3}(\.\d{1,3}){3}$' -and -not $ips.Contains($addr)) { [void]$ips.Add($addr) }
+            }
+        }
+    } catch { return }
+    if ($ips.Count -eq 0) { return }
+    $text = Get-Content -LiteralPath $exclude -Raw -ErrorAction SilentlyContinue
+    if (-not $text) { $text = '' }
+    $added = $false
+    foreach ($addr in $ips) {
+        $cidr = "$addr/32"
+        if ($text -notmatch [regex]::Escape($cidr)) {
+            $text = $text.TrimEnd() + "`r`n" + $cidr + "`r`n"
+            $added = $true
+        }
+    }
+    if ($added) { [IO.File]::WriteAllText($exclude, $text) }
+}
+
 function Sync-WinwsArgs {
     $sync = Join-Path $PSScriptRoot 'sync-service-args.ps1'
     if (-not (Test-Path $sync)) { return $false }
@@ -225,6 +255,7 @@ function Get-ZapretSteps {
         Name = 'Pryamoj zapusk winws.exe'
         Group = 'Zapret'
         Try  = {
+            Update-VlessIpExclude
             Sync-WinwsArgs | Out-Null
             $argsFile = Join-Path $PSScriptRoot 'alt11-service-args.txt'
             $winws = Join-Path $rootDir 'bin\winws.exe'
