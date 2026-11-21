@@ -1,11 +1,11 @@
-Otmena build 1.1.61
+Otmena build 1.1.62
 Date: 2026-11-20
 Zapret: Flowseal/zapret-discord-youtube 1.10.1. Fake packets (quic/tls/stun/discord) ship in bin so an update does not wipe them and winws can start.
 WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
-VLESS: vpn.dance Germany 5.252.26.204 (Reality SNI www.google.com, until 23.11.2026)
+VLESS: vpn.dance Germany 64.118.156.251 (Reality SNI api-maps.yandex.ru, until 23.11.2026)
 Spare: Nexus https://link.nexus-freedom.online/api/sub/S-KN2RmwbSnqee5h (skipped while the panel says the device limit is full)
 Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
-Cursor: route through Germany TCP 8444 (plain ClientHello, short id 189cfa69, SNI www.google.com). gRPC 8443, WS 8447 and the auto node 216.236.30.86 also open api2.cursor.sh from the probe host. TCP 443 on this server has an empty short id, so it stays last. A first HTTP 000 on a live TCP port is retried once before fragment modes. If 8444 is blocked, the probe tries auto 216.236.30.86 before the YouTube exit. A 403 is a region block, not a working tunnel. If the first curl succeeds and the next one fails, the profile search still runs. A dead tunnel removes the Cursor proxy in work mode too, after a resync and a second probe. Chaining the Germany server through the YouTube exit does not open api2.
+Cursor: route through Germany TCP 8444 (plain ClientHello, short id d7e1a111, SNI api-maps.yandex.ru). TCP 443 short id 6ba85179e30d4fc2 and the auto node 216.236.30.86 also open api2.cursor.sh. WS 8447 answered on the second try. gRPC 8443 returned HTTP 000 twice, so it is not the route. A first HTTP 000 on a live TCP port is retried once before fragment modes. If 8444 is blocked, the probe tries auto 216.236.30.86 before the YouTube exit. A 403 is a region block, not a working tunnel. If the first curl succeeds and the next one fails, the profile search still runs. A dead tunnel removes the Cursor proxy in work mode too, after a resync and a second probe. Chaining the Germany server through the YouTube exit does not open api2.
 Telegram: SOCKS 10808 uses the YouTube exit 194.55.244.117 so Telegram keeps working when the Germany IP stops answering. Cursor does not use that exit.
 Telegram: insert proxy-dag.ru and SOCKS via Telegram.exe even when tg:// is taken by the Store app
 Telegram spare MTProto list for manual entry: data.mtproxy.cc, mtpvideo.my, 138.124.127.179
