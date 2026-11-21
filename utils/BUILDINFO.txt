@@ -1,3 +1,14 @@
-Otmena build 1.0.8
-Date: 2026-06-01 14:33:30
-Includes: MTProto LiteralPath fix, auto xray install, GitHub updates, UTF8 logs
+Otmena build 1.1.65
+Date: 2026-11-20
+Zapret: Flowseal/zapret-discord-youtube 1.10.1. Fake packets (quic/tls/stun/discord) ship in bin so an update does not wipe them and winws can start.
+WinDivert: 2.2.2-A (official), loaded from C:\ProgramData\Otmena\bin
+VLESS: vpn.dance USA 45.76.0.233 (Reality SNI yahoo.com, until 23.11.2026)
+Spare: Nexus https://link.nexus-freedom.online/api/sub/S-KN2RmwbSnqee5h (skipped while the panel says the device limit is full)
+Autostart: utils\autostart.on + Startup + HKCU Run + logon task, waits for network before sync
+Cursor: USA TCP 8444 (short id d7e1abac, SNI yahoo.com) is dialed through the YouTube exit 194.55.244.117. The direct USA address is blackholed from this ISP, and that exit follows a whole ClientHello, so the hello is split (10-20) and the exit keeps 45.76.0.233. That path returns HTTP 200. Telegram SOCKS stays on the YouTube exit directly. A 403 is a region block, not a working tunnel. The probe still tries this chain when the country TCP check is 0. A dead tunnel removes the Cursor proxy in work mode too, after a resync and a second probe.
+Telegram: SOCKS 10808 uses the YouTube exit 194.55.244.117 so Telegram keeps working when the Germany IP stops answering. Cursor does not use that exit.
+Telegram: insert proxy-dag.ru and SOCKS via Telegram.exe even when tg:// is taken by the Store app
+Telegram spare MTProto list for manual entry: data.mtproxy.cc, mtpvideo.my, 138.124.127.179
+Telegram: if proxy-dag.ru:443 is closed, leave it alone and add SOCKS 127.0.0.1:10808. Do not send a disable command
+Closed network: when the tunnel is up and public MTProto is blocked, the journal says SOCKS only and does not list spare proxies
+Cursor: look up Cursor.exe and settings in the Otmena folder's Windows profile, not only the task account

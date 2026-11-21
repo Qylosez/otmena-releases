@@ -1,0 +1,819 @@
+#Requires -Version 3.0
+<#
+  Fetches the vpn.dance subscription (or uses a local cache) and writes
+  telegram-vless\config.json for xray: SOCKS 10808 + HTTP 10809 + SOCKS 10810,
+  with Reality TCP / gRPC / WS outbounds plus a Hysteria2 profile.
+  User traffic goes to one profile. A dead leastPing fallback was
+  answering every Cursor connection with HTTP 000.
+#>
+param(
+    [switch]$Quiet,
+    [switch]$Offline,
+    [switch]$Single,
+    [int]$ProfileIndex = -1,
+    [string]$Fragment = 'auto'
+)
+
+$ErrorActionPreference = 'SilentlyContinue'
+$script:VlessFromCache = $false
+$utilsDir = $PSScriptRoot
+$rootDir = Split-Path $utilsDir -Parent
+$vlessDir = Join-Path $rootDir 'telegram-vless'
+$configFile = Join-Path $vlessDir 'config.json'
+$subFile = Join-Path $vlessDir 'subscription.json'
+$cacheFile = Join-Path $vlessDir 'subscription.cache.txt'
+$metaFile = Join-Path $vlessDir 'subscription.meta.json'
+
+function Say($msg, $color = 'Gray') {
+    if (-not $Quiet) { Write-Host $msg -ForegroundColor $color }
+}
+
+function Get-QueryMap([string]$query) {
+    $map = @{}
+    if ([string]::IsNullOrWhiteSpace($query)) { return $map }
+    foreach ($pair in $query.Split('&')) {
+        if ([string]::IsNullOrWhiteSpace($pair)) { continue }
+        $eq = $pair.IndexOf('=')
+        if ($eq -lt 0) {
+            $map[$pair] = ''
+            continue
+        }
+        $k = [Uri]::UnescapeDataString($pair.Substring(0, $eq))
+        $v = [Uri]::UnescapeDataString($pair.Substring($eq + 1))
+        $map[$k] = $v
+    }
+    return $map
+}
+
+function ConvertFrom-HysteriaUri([string]$raw) {
+    $line = $raw.Trim()
+    if ($line -notmatch '^hysteria2://') { return $null }
+    $noScheme = $line.Substring(12)
+    $hash = $noScheme.IndexOf('#')
+    $remark = ''
+    if ($hash -ge 0) {
+        $remark = [Uri]::UnescapeDataString($noScheme.Substring($hash + 1))
+        $noScheme = $noScheme.Substring(0, $hash)
+    }
+    $q = $noScheme.IndexOf('?')
+    $query = ''
+    $main = $noScheme
+    if ($q -ge 0) {
+        $query = $noScheme.Substring($q + 1)
+        $main = $noScheme.Substring(0, $q)
+    }
+    $main = $main.TrimEnd('/')
+    $at = $main.LastIndexOf('@')
+    if ($at -lt 0) { return $null }
+    $uuid = $main.Substring(0, $at)
+    $hostPort = $main.Substring($at + 1)
+    $colon = $hostPort.LastIndexOf(':')
+    if ($colon -lt 0) { return $null }
+    $address = $hostPort.Substring(0, $colon).Trim('[', ']')
+    $port = 0
+    if (-not [int]::TryParse($hostPort.Substring($colon + 1), [ref]$port)) { return $null }
+    $p = Get-QueryMap $query
+    $obfs = [string]$p['obfs']
+    if ($obfs -and $obfs -ne 'salamander') { return $null }
+    return [PSCustomObject]@{
+        Uuid         = $uuid
+        Address      = $address
+        Port         = $port
+        Type         = 'hysteria'
+        Security     = 'tls'
+        Sni          = $p['sni']
+        Fp           = 'chrome'
+        Pbk          = ''
+        Sid          = ''
+        Path         = '/'
+        Host         = ''
+        Service      = ''
+        Flow         = ''
+        Obfs         = $obfs
+        ObfsPassword = [string]$p['obfs-password']
+        Remark       = $remark
+    }
+}
+
+function ConvertFrom-VlessUri([string]$raw) {
+    $line = $raw.Trim()
+    if ($line -notmatch '^vless://') { return $null }
+    $noScheme = $line.Substring(8)
+    $hash = $noScheme.IndexOf('#')
+    $remark = ''
+    if ($hash -ge 0) {
+        $remark = [Uri]::UnescapeDataString($noScheme.Substring($hash + 1))
+        $noScheme = $noScheme.Substring(0, $hash)
+    }
+    $q = $noScheme.IndexOf('?')
+    $query = ''
+    $main = $noScheme
+    if ($q -ge 0) {
+        $query = $noScheme.Substring($q + 1)
+        $main = $noScheme.Substring(0, $q)
+    }
+    $at = $main.LastIndexOf('@')
+    if ($at -lt 0) { return $null }
+    $uuid = $main.Substring(0, $at)
+    $hostPort = $main.Substring($at + 1)
+    $colon = $hostPort.LastIndexOf(':')
+    if ($colon -lt 0) { return $null }
+    $address = $hostPort.Substring(0, $colon).Trim('[', ']')
+    $port = 0
+    if (-not [int]::TryParse($hostPort.Substring($colon + 1), [ref]$port)) { return $null }
+    $p = Get-QueryMap $query
+    $type = if ($p['type']) { $p['type'] } else { 'tcp' }
+    $security = if ($p['security']) { $p['security'] } else { 'none' }
+    return [PSCustomObject]@{
+        Uuid      = $uuid
+        Address   = $address
+        Port      = $port
+        Type      = $type.ToLowerInvariant()
+        Security  = $security.ToLowerInvariant()
+        Sni       = $p['sni']
+        Fp        = if ($p['fp']) { $p['fp'] } else { 'chrome' }
+        Pbk       = $p['pbk']
+        Sid       = if ($null -ne $p['sid']) { $p['sid'] } else { '' }
+        Path      = if ($p['path']) { $p['path'] } else { '/' }
+        Host      = $p['host']
+        Service   = if ($p['serviceName']) { $p['serviceName'] } else { 'grpcservice' }
+        Flow      = $p['flow']
+        Remark    = $remark
+    }
+}
+
+function Get-SubscriptionText {
+    $url = $null
+    if (Test-Path $subFile) {
+        try {
+            $cfg = Get-Content $subFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($cfg.url) { $url = [string]$cfg.url }
+        } catch {}
+    }
+    if (-not $Offline -and $url) {
+        try {
+            $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 20
+            $body = [string]$resp.Content
+            if ($body) {
+                $body.Trim() | Out-File -FilePath $cacheFile -Encoding ASCII -Force
+                return $body
+            }
+        } catch {
+            $script:VlessFromCache = $true
+            Say 'vpn.dance: ne udalos obnovit podpisku, beru kesh.' Yellow
+        }
+    }
+    if (Test-Path $cacheFile) {
+        if (-not $Offline) { $script:VlessFromCache = $true }
+        return Get-Content $cacheFile -Raw -ErrorAction SilentlyContinue
+    }
+    return $null
+}
+
+function ConvertFrom-SubscriptionBody([string]$body) {
+    if ([string]::IsNullOrWhiteSpace($body)) { return @() }
+    $text = $body.Trim()
+    if ($text -notmatch '^vless://') {
+        try {
+            $pad = $text.Length % 4
+            if ($pad) { $text += ('=' * (4 - $pad)) }
+            $decoded = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($text))
+            if ($decoded) { $text = $decoded }
+        } catch {}
+    }
+    $links = @()
+    foreach ($line in ($text -split "[\r\n]+")) {
+        $parsed = ConvertFrom-VlessUri $line
+        if (-not $parsed) { $parsed = ConvertFrom-HysteriaUri $line }
+        if ($parsed) { $links += $parsed }
+    }
+    return $links
+}
+
+function Get-JsonString([string]$s) {
+    if ($null -eq $s) { $s = '' }
+    return ($s | ConvertTo-Json -Compress)
+}
+
+function New-HysteriaOutboundJson($link, [string]$tag) {
+    $sni = if ($link.Sni) { $link.Sni } else { $link.Address }
+    $mask = ''
+    if ($link.Obfs -eq 'salamander' -and -not [string]::IsNullOrWhiteSpace([string]$link.ObfsPassword)) {
+        $mask = @"
+,
+      "finalmask": {
+        "udp": [
+          {
+            "type": "salamander",
+            "settings": {
+              "password": $(Get-JsonString $link.ObfsPassword)
+            }
+          }
+        ]
+      }
+"@
+    }
+    return @"
+    {
+      "tag": "$tag",
+      "protocol": "hysteria",
+      "settings": {
+        "version": 2,
+        "address": $(Get-JsonString $link.Address),
+        "port": $($link.Port)
+      },
+      "streamSettings": {
+        "network": "hysteria",
+        "security": "tls",
+        "tlsSettings": {
+          "serverName": $(Get-JsonString $sni),
+          "alpn": ["h3"]
+        },
+        "hysteriaSettings": {
+          "version": 2,
+          "auth": $(Get-JsonString $link.Uuid)
+        }$mask
+      }
+    }
+"@
+}
+
+function New-OutboundJson($link, [string]$tag) {
+    if ($link.Type -eq 'hysteria') { return (New-HysteriaOutboundJson $link $tag) }
+    $idJson = Get-JsonString $link.Uuid
+    $addrJson = Get-JsonString $link.Address
+    $enc = '"encryption": "none"'
+    if ($link.Flow) { $enc += ', "flow": ' + (Get-JsonString $link.Flow) }
+    $user = "{ `"id`": $idJson, $enc }"
+    $vnext = "{ `"address`": $addrJson, `"port`": $($link.Port), `"users`": [ $user ] }"
+    $network = $link.Type
+    $security = $link.Security
+    if ($security -eq 'tls' -or $security -eq 'xtls') { $security = 'tls' }
+    $streamParts = New-Object System.Collections.Generic.List[string]
+    $streamParts.Add(('      "network": {0}' -f (Get-JsonString $network)))
+    $streamParts.Add(('      "security": {0}' -f (Get-JsonString $security)))
+    if ($security -eq 'reality') {
+        $sni = if ($link.Sni) { $link.Sni } else { $link.Address }
+        $sidLine = ''
+        if (-not [string]::IsNullOrWhiteSpace([string]$link.Sid)) {
+            $sidLine = ",`r`n        `"shortId`": $(Get-JsonString $link.Sid)"
+        }
+        $streamParts.Add(@"
+      "realitySettings": {
+        "serverName": $(Get-JsonString $sni),
+        "fingerprint": $(Get-JsonString $link.Fp),
+        "publicKey": $(Get-JsonString $link.Pbk)$sidLine
+      }
+"@)
+    } elseif ($security -eq 'tls') {
+        $sni = if ($link.Sni) { $link.Sni } else { $link.Address }
+        $streamParts.Add(@"
+      "tlsSettings": {
+        "serverName": $(Get-JsonString $sni),
+        "allowInsecure": false,
+        "fingerprint": $(Get-JsonString $link.Fp)
+      }
+"@)
+    }
+    if ($network -eq 'grpc') {
+        $streamParts.Add(@"
+      "grpcSettings": {
+        "serviceName": $(Get-JsonString $link.Service),
+        "multiMode": false
+      }
+"@)
+    } elseif ($network -eq 'ws') {
+        $hostLine = ''
+        if ($link.Host) { $hostLine = ('        "host": {0},' -f (Get-JsonString $link.Host)) + [Environment]::NewLine }
+        $streamParts.Add(@"
+      "wsSettings": {
+$hostLine        "path": $(Get-JsonString $link.Path)
+      }
+"@)
+    }
+    # The YouTube exit sniffs a whole ClientHello and follows its SNI, so a
+    # tunnel to the country server only authenticates when the hello is split.
+    # The exit itself must dial straight out, or the chain loops.
+    $isRelay = $false
+    if ($script:ChainViaRelay -and $link.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$link.Uuid -and ([string]$link.Uuid -ne [string]$script:PrimaryUuid) -and -not $script:RelaySeen) {
+        $isRelay = $true
+        $script:RelaySeen = $true
+    }
+    # Port 443 is where the filter drops a whole ClientHello, so split it.
+    # On 8444/8443 the TCP handshake already succeeds and a split hello just
+    # hangs until curl gives up, so those ports go out in one piece — unless
+    # the country address is reached through the YouTube exit.
+    $fragThis = $false
+    if ($isRelay) { $fragThis = $false }
+    elseif ($Fragment -eq 'force' -or $Fragment -eq 'tiny') { $fragThis = $true }
+    elseif ($script:ChainViaRelay -and $Fragment -ne 'off') { $fragThis = $true }
+    elseif ($Fragment -ne 'off' -and [int]$link.Port -eq 443) { $fragThis = $true }
+    if ($fragThis) {
+        $script:NeedFragment = $true
+        $streamParts.Add(@'
+      "sockopt": {
+        "dialerProxy": "fragment"
+      }
+'@)
+    }
+    $stream = ($streamParts -join ",`n")
+    return @"
+    {
+      "tag": "$tag",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [ $vnext ]
+      },
+      "streamSettings": {
+$stream
+      }
+    }
+"@
+}
+
+function Get-LinkRank($link) {
+    # An empty Reality short id often hangs the handshake (curl HTTP 000).
+    # Prefer a profile that actually carries a short id.
+    $rank = 40
+    switch ([string]$link.Type) {
+        'tcp' { $rank = 10 }
+        'ws' { $rank = 20 }
+        'grpc' { $rank = 30 }
+        'hysteria' { $rank = 60 }
+    }
+    if ($link.Security -eq 'reality' -and [string]::IsNullOrWhiteSpace([string]$link.Sid)) { $rank += 25 }
+    # Port 443 is the filtered one. Prefer another TCP port of the same server.
+    if ([string]$link.Type -eq 'tcp' -and [int]$link.Port -eq 443) { $rank += 8 }
+    # The selected country is the UUID that appears most often. Auto-location
+    # and the YouTube exit use other UUIDs and must not become the Cursor route.
+    if ($script:PrimaryUuid -and [string]$link.Uuid -and ([string]$link.Uuid -ne [string]$script:PrimaryUuid)) { $rank += 15 }
+    return $rank
+}
+
+function Get-PreferOrder {
+    $order = @('tcp', 'grpc', 'ws')
+    if (Test-Path $subFile) {
+        try {
+            $cfg = Get-Content $subFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($cfg.prefer) { $order = @($cfg.prefer) }
+        } catch {}
+    }
+    return $order
+}
+
+function Get-DirectDomainJson {
+    $f = Join-Path $rootDir 'lists\list-direct-ru.txt'
+    $items = New-Object System.Collections.Generic.List[string]
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
+    foreach ($tld in @('ru', 'su', 'xn--p1ai')) {
+        if ($seen.Add($tld)) { [void]$items.Add((Get-JsonString ('domain:' + $tld))) }
+    }
+    if (Test-Path $f) {
+        Get-Content -LiteralPath $f -ErrorAction SilentlyContinue | ForEach-Object {
+            $d = ([string]$_).Trim()
+            if (-not $d -or $d.StartsWith('#')) { return }
+            if ($d -notmatch '^[a-z0-9.-]+$') { return }
+            if (-not $seen.Add($d)) { return }
+            [void]$items.Add((Get-JsonString ('domain:' + $d)))
+        }
+    }
+    if ($items.Count -eq 0) { return '' }
+    return ($items.ToArray() -join ', ')
+}
+
+function Get-ProbeUrl {
+    $url = 'https://www.gstatic.com/generate_204'
+    if (Test-Path $subFile) {
+        try {
+            $cfg = Get-Content $subFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($cfg.probeUrl) { $url = [string]$cfg.probeUrl }
+        } catch {}
+    }
+    return $url
+}
+
+function Get-TagForLink($link, $used) {
+    $base = switch ($link.Type) {
+        'grpc' { 'proxy-grpc' }
+        'ws' { 'proxy-ws' }
+        'hysteria' { 'proxy-hy' }
+        default { 'proxy-tcp' }
+    }
+    $tag = $base
+    $n = 2
+    while ($used.Contains($tag)) {
+        $tag = "$base-$n"
+        $n++
+    }
+    $used.Add($tag) | Out-Null
+    return $tag
+}
+
+function Get-SpareVlessLinks {
+    $script:SpareState = 'off'
+    $url = $null
+    if (Test-Path $subFile) {
+        try {
+            $cfg = Get-Content -LiteralPath $subFile -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($cfg.spareUrl) { $url = [string]$cfg.spareUrl }
+        } catch {}
+    }
+    if (-not $url) { return @() }
+    if ($Offline) { $script:SpareState = 'offline'; return @() }
+    $body = $null
+    try {
+        $headers = @{
+            'x-hwid' = 'otmena-815815910'
+            'x-device-os' = 'Windows'
+            'x-ver-os' = '10.0'
+            'x-device-model' = 'Desktop'
+            'User-Agent' = 'Happ/2.0.0'
+        }
+        $resp = Invoke-WebRequest -Uri $url -Headers $headers -UseBasicParsing -TimeoutSec 15
+        $body = [string]$resp.Content
+    } catch {
+        $script:SpareState = 'fetch-fail'
+        return @()
+    }
+    if (-not $body) { $script:SpareState = 'empty'; return @() }
+    # The panel sends 0.0.0.0:1 when the device limit is full. Never route through that.
+    if ($body.Contains('0.0.0.0') -and $body.Contains('00000000-0000-0000-0000-000000000000')) {
+        $script:SpareState = 'limit'
+        return @()
+    }
+    $parsed = @()
+    try { $parsed = @($body | ConvertFrom-Json) } catch { $script:SpareState = 'bad'; return @() }
+    $out = New-Object System.Collections.Generic.List[object]
+    foreach ($item in $parsed) {
+        if (-not $item.outbounds) { continue }
+        foreach ($ob in @($item.outbounds)) {
+            if ([string]$ob.protocol -ne 'vless') { continue }
+            $vnext = @($ob.settings.vnext)
+            if ($vnext.Count -lt 1) { continue }
+            $node = $vnext[0]
+            $users = @($node.users)
+            if ($users.Count -lt 1) { continue }
+            $user = $users[0]
+            $addr = [string]$node.address
+            $port = 0
+            try { $port = [int]$node.port } catch { $port = 0 }
+            $id = [string]$user.id
+            if (-not $addr -or $addr -eq '0.0.0.0' -or $port -le 1) { continue }
+            if ($id -like '00000000-*') { continue }
+            $ss = $ob.streamSettings
+            $net = 'tcp'
+            $sec = 'none'
+            if ($ss -and $ss.network) { $net = ([string]$ss.network).ToLowerInvariant() }
+            if ($ss -and $ss.security) { $sec = ([string]$ss.security).ToLowerInvariant() }
+            $sni = $null
+            $fp = 'qq'
+            $pbk = $null
+            $sid = ''
+            $path = '/'
+            $hosth = $null
+            $svc = 'grpcservice'
+            $flow = $null
+            if ($user.flow) { $flow = [string]$user.flow }
+            if ($ss -and $ss.realitySettings) {
+                $rs = $ss.realitySettings
+                if ($rs.serverName) { $sni = [string]$rs.serverName }
+                if ($rs.fingerprint) { $fp = [string]$rs.fingerprint }
+                if ($rs.publicKey) { $pbk = [string]$rs.publicKey }
+                if ($null -ne $rs.shortId) { $sid = [string]$rs.shortId }
+            } elseif ($ss -and $ss.tlsSettings) {
+                if ($ss.tlsSettings.serverName) { $sni = [string]$ss.tlsSettings.serverName }
+                if ($ss.tlsSettings.fingerprint) { $fp = [string]$ss.tlsSettings.fingerprint }
+            }
+            if ($ss -and $ss.wsSettings) {
+                if ($ss.wsSettings.path) { $path = [string]$ss.wsSettings.path }
+                if ($ss.wsSettings.headers -and $ss.wsSettings.headers.Host) { $hosth = [string]$ss.wsSettings.headers.Host }
+                elseif ($ss.wsSettings.host) { $hosth = [string]$ss.wsSettings.host }
+            }
+            if ($ss -and $ss.grpcSettings -and $ss.grpcSettings.serviceName) { $svc = [string]$ss.grpcSettings.serviceName }
+            [void]$out.Add([PSCustomObject]@{
+                Uuid = $id; Address = $addr; Port = $port; Type = $net; Security = $sec
+                Sni = $sni; Fp = $fp; Pbk = $pbk; Sid = $sid; Path = $path; Host = $hosth
+                Service = $svc; Flow = $flow; Remark = 'nexus'
+            })
+            if ($out.Count -ge 4) { break }
+        }
+        if ($out.Count -ge 4) { break }
+    }
+    if ($out.Count -gt 0) { $script:SpareState = 'ok' } else { $script:SpareState = 'none' }
+    return @($out)
+}
+
+function Get-ExtraLinks {
+    if (-not (Test-Path $subFile)) { return @() }
+    try { $cfg = Get-Content -LiteralPath $subFile -Raw -Encoding UTF8 | ConvertFrom-Json } catch { return @() }
+    if (-not $cfg.extra) { return @() }
+    $found = @()
+    foreach ($line in @($cfg.extra)) {
+        $parsed = ConvertFrom-VlessUri ([string]$line)
+        if (-not $parsed) { $parsed = ConvertFrom-HysteriaUri ([string]$line) }
+        if ($parsed) { $found += $parsed }
+    }
+    return $found
+}
+
+$script:SpareState = 'off'
+$rawSub = Get-SubscriptionText
+$links = @(ConvertFrom-SubscriptionBody $rawSub)
+$knownAddr = @{}
+foreach ($haveLink in $links) { $knownAddr[[string]$haveLink.Address] = $true }
+foreach ($extra in @(Get-ExtraLinks)) {
+    # A pinned link from the previous country (preserved subscription.json)
+    # must not be dialed after the bot switches the server.
+    if (-not $knownAddr.ContainsKey([string]$extra.Address)) { continue }
+    $have = $false
+    foreach ($haveLink in $links) {
+        if ($haveLink.Address -eq $extra.Address -and [int]$haveLink.Port -eq [int]$extra.Port -and $haveLink.Type -eq $extra.Type) { $have = $true; break }
+    }
+    if (-not $have) { $links += $extra }
+}
+if ($links.Count -eq 0) {
+    Say 'VLESS: net profilej v podpiske, ostavlyayu tekushij config.json' Yellow
+    Write-Output 'VLESS_SYNC=cache-miss'
+    exit 1
+}
+
+$prefer = Get-PreferOrder
+$sorted = @()
+foreach ($kind in $prefer) {
+    $sorted += @($links | Where-Object { $_.Type -eq $kind })
+}
+$sorted += @($links | Where-Object { $prefer -notcontains $_.Type })
+# unique by type+port+address
+$seen = @{}
+$unique = @()
+$supported = @('tcp', 'grpc', 'ws', 'hysteria')
+foreach ($l in $sorted) {
+    if ($supported -notcontains $l.Type) { continue }
+    $k = '{0}|{1}|{2}' -f $l.Address, $l.Port, $l.Type
+    if ($seen.ContainsKey($k)) { continue }
+    $seen[$k] = $true
+    $unique += $l
+}
+$script:PrimaryUuid = ''
+$uuidCount = @{}
+foreach ($l in $links) {
+    $id = [string]$l.Uuid
+    if (-not $id) { continue }
+    if (-not $uuidCount.ContainsKey($id)) { $uuidCount[$id] = 0 }
+    $uuidCount[$id]++
+}
+$bestN = -1
+foreach ($id in $uuidCount.Keys) {
+    if ($uuidCount[$id] -gt $bestN) { $bestN = $uuidCount[$id]; $script:PrimaryUuid = $id }
+}
+$unique = @($unique | Sort-Object @{ Expression = { Get-LinkRank $_ } }, @{ Expression = { [string]$_.Address } }, @{ Expression = { [int]$_.Port } })
+
+if ($ProfileIndex -ge 0 -and $ProfileIndex -lt $unique.Count) {
+    $unique = @($unique[$ProfileIndex])
+    $Single = $true
+} elseif (-not $Single) {
+    foreach ($s in @(Get-SpareVlessLinks)) {
+        if (-not $s.Address) { continue }
+        $k = '{0}|{1}|{2}' -f $s.Address, $s.Port, $s.Type
+        if ($seen.ContainsKey($k)) { continue }
+        $seen[$k] = $true
+        $unique += $s
+    }
+}
+
+$script:NeedFragment = $false
+$script:ChainViaRelay = $false
+$script:RelaySeen = $false
+foreach ($l in $unique) {
+    if ($l.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$l.Uuid -and ([string]$l.Uuid -ne [string]$script:PrimaryUuid)) {
+        $script:ChainViaRelay = $true
+        break
+    }
+}
+$usedTags = New-Object System.Collections.Generic.List[string]
+$outboundJson = @()
+$selectorTags = @()
+foreach ($l in $unique) {
+    $tag = Get-TagForLink $l $usedTags
+    $outboundJson += (New-OutboundJson $l $tag)
+    $selectorTags += $tag
+}
+if ($Single -and $selectorTags.Count -gt 1) {
+    $outboundJson = @($outboundJson[0])
+    $selectorTags = @($selectorTags[0])
+}
+
+$fallback = $selectorTags[0]
+$selectorJson = ($selectorTags | ForEach-Object { Get-JsonString $_ }) -join ', '
+$relayTag = ''
+for ($ri = 0; $ri -lt $unique.Count -and $ri -lt $selectorTags.Count; $ri++) {
+    $rl = $unique[$ri]
+    if ($rl.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$rl.Uuid -and ([string]$rl.Uuid -ne [string]$script:PrimaryUuid)) {
+        $relayTag = $selectorTags[$ri]
+        break
+    }
+}
+$fragLen = '100-200'
+$fragIv = '10-20'
+if ($Fragment -eq 'tiny') { $fragLen = '1-3'; $fragIv = '1-5' }
+elseif ($relayTag -and $relayTag -ne $fallback) { $fragLen = '10-20'; $fragIv = '1-5' }
+$fragmentDial = ''
+if ($relayTag -and $relayTag -ne $fallback) {
+    $fragmentDial = @"
+,
+      "streamSettings": {
+        "sockopt": {
+          "dialerProxy": "$relayTag"
+        }
+      }
+"@
+}
+$fragmentJson = @"
+    {
+      "tag": "fragment",
+      "protocol": "freedom",
+      "settings": {
+        "fragment": {
+          "packets": "tlshello",
+          "length": "$fragLen",
+          "interval": "$fragIv"
+        }
+      }$fragmentDial
+    }
+"@
+if ($script:NeedFragment) {
+    $outboundsJoined = (($outboundJson -join ",`n") + ",`n" + $fragmentJson)
+} else {
+    $outboundsJoined = ($outboundJson -join ",`n")
+}
+$probe = Get-JsonString (Get-ProbeUrl)
+# leastPing holds the first packets on fallback (often :443) until observatory
+# finishes. From a filtered network that fallback never answers, so Cursor
+# stays on HTTP 000. Route straight at the best profile instead.
+$useBalancer = $false
+$remarks = 'Otmena | vpn.dance | TG SOCKS 10808 + Cursor HTTP 10809 / SOCKS 10810'
+$directJson = Get-DirectDomainJson
+$directRule = ''
+if ($directJson) {
+    $directRule = @"
+      {
+        "type": "field",
+        "domain": [$directJson],
+        "outboundTag": "direct"
+      },
+"@
+}
+
+if ($useBalancer) {
+    $routingInner = @"
+    "domainStrategy": "IPIfNonMatch",
+    "balancers": [
+      {
+        "tag": "auto",
+        "selector": [$selectorJson],
+        "fallbackTag": $(Get-JsonString $fallback),
+        "strategy": {
+          "type": "leastPing"
+        }
+      }
+    ],
+    "rules": [
+$directRule
+      {
+        "type": "field",
+        "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],
+        "balancerTag": "auto"
+      }
+    ]
+"@
+    $observatoryBlock = @"
+  "observatory": {
+    "subjectSelector": [$selectorJson],
+    "probeUrl": $probe,
+    "probeInterval": "45s",
+    "enableConcurrency": true
+  },
+"@
+} else {
+    # The YouTube exit answers 403 for Cursor, so Cursor must not exit there.
+    # Its TCP to the country server is blackholed from this ISP, and that exit
+    # can still open the country port. Split the hello so the exit keeps the
+    # dialed IP instead of following the SNI. Telegram uses the exit directly.
+    if ($relayTag -and $relayTag -ne $fallback) {
+        $proxyRules = @"
+      {
+        "type": "field",
+        "inboundTag": ["socks-tg"],
+        "outboundTag": $(Get-JsonString $relayTag)
+      },
+      {
+        "type": "field",
+        "inboundTag": ["http-cursor", "socks-cursor"],
+        "outboundTag": $(Get-JsonString $fallback)
+      }
+"@
+    } else {
+        $proxyRules = @"
+      {
+        "type": "field",
+        "inboundTag": ["socks-tg", "http-cursor", "socks-cursor"],
+        "outboundTag": $(Get-JsonString $fallback)
+      }
+"@
+    }
+    $routingInner = @"
+    "domainStrategy": "IPIfNonMatch",
+    "rules": [
+$directRule
+$proxyRules
+    ]
+"@
+    $observatoryBlock = ''
+}
+
+$json = @"
+{
+  "log": {
+    "loglevel": "warning"
+  },
+  "dns": {
+    "servers": ["1.1.1.1", "8.8.8.8"]
+  },
+  "inbounds": [
+    {
+      "tag": "socks-tg",
+      "listen": "127.0.0.1",
+      "port": 10808,
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    },
+    {
+      "tag": "http-cursor",
+      "listen": "127.0.0.1",
+      "port": 10809,
+      "protocol": "http",
+      "settings": {
+        "allowTransparent": false
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    },
+    {
+      "tag": "socks-cursor",
+      "listen": "127.0.0.1",
+      "port": 10810,
+      "protocol": "socks",
+      "settings": {
+        "auth": "noauth",
+        "udp": true
+      },
+      "sniffing": {
+        "enabled": true,
+        "destOverride": ["http", "tls", "quic"]
+      }
+    }
+  ],
+  "outbounds": [
+$outboundsJoined,
+    {
+      "tag": "direct",
+      "protocol": "freedom"
+    },
+    {
+      "tag": "block",
+      "protocol": "blackhole"
+    }
+  ],
+  "routing": {
+$routingInner
+  },
+$observatoryBlock
+  "remarks": $(Get-JsonString $remarks)
+}
+"@
+
+$utf8 = New-Object System.Text.UTF8Encoding $false
+[IO.File]::WriteAllText($configFile, $json, $utf8)
+
+$meta = @{
+    updated = (Get-Date).ToString('s')
+    profiles = @($unique | ForEach-Object { '{0}:{1}/{2}' -f $_.Address, $_.Port, $_.Type })
+    tags = $selectorTags
+    fallback = $fallback
+} | ConvertTo-Json -Compress
+[IO.File]::WriteAllText($metaFile, $meta, $utf8)
+
+Say ("VLESS: {0} profilej, balancer {1}" -f $selectorTags.Count, ($selectorTags -join ', ')) Green
+$syncState = if ($script:VlessFromCache) { 'cache' } else { 'ok' }
+Write-Output ("SPARE={0}" -f $script:SpareState)
+Write-Output ("VLESS_SYNC={0} profiles={1}" -f $syncState, $selectorTags.Count)
+exit 0

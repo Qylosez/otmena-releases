@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'otmena-common.ps1')
 $utilsDir = $PSScriptRoot
 $rootDir = Split-Path $utilsDir -Parent
 $binDir = Join-Path $rootDir 'telegram-vless\bin'
@@ -47,6 +48,8 @@ function Expand-XrayZip([string]$zipPath) {
         if (-not $found) { throw 'xray.exe not in archive' }
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
         Copy-Item -Path $found.FullName -Destination $xrayExe -Force
+        try { Unblock-File -LiteralPath $xrayExe -ErrorAction SilentlyContinue } catch {}
+        try { Remove-Item -LiteralPath $xrayExe -Stream Zone.Identifier -ErrorAction SilentlyContinue } catch {}
     } finally {
         Remove-Item $extractDir -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
@@ -70,15 +73,12 @@ function Install-FromUrl([string]$url, [string]$label) {
     Write-Step "xray: $label..." Cyan
     $zipPath = Join-Path $env:TEMP ('xray-dl-' + [guid]::NewGuid().ToString() + '.zip')
     try {
-        Invoke-WebRequest -Uri $url -OutFile $zipPath -UseBasicParsing -TimeoutSec 180
-        if ((Get-Item $zipPath).Length -lt 1000000) {
-            throw 'file too small (not a zip?)'
-        }
+        Save-OtmenaUrl -Url $url -OutFile $zipPath -TimeoutSec 180 -MinBytes 1000000
         Expand-XrayZip $zipPath
         return $true
     } catch {
         Remove-Item $zipPath -Force -ErrorAction SilentlyContinue
-        Write-Step ("xray: $label - " + $_.Exception.Message) Yellow
+        Write-Step ("xray: $label - ne tot fajl ili GitHub zablokirovan (" + $_.Exception.Message + ")") Yellow
         return $false
     }
 }

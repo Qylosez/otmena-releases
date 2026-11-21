@@ -1,24 +1,16 @@
 #Requires -Version 3.0
 $ErrorActionPreference = 'Stop'
 
-$rootDir = Split-Path $PSScriptRoot -Parent
-$startupDir = [Environment]::GetFolderPath('Startup')
-$linkPath = Join-Path $startupDir 'Otmena.lnk'
-$ps = (Get-Command powershell.exe).Source
-$target = Join-Path $PSScriptRoot 'start-all-quiet.ps1'
+$flag = Join-Path $PSScriptRoot 'autostart.on'
+$stamp = (Get-Date).ToString('s') + [Environment]::NewLine
+[IO.File]::WriteAllText($flag, $stamp, (New-Object System.Text.UTF8Encoding $false))
 
-$shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut($linkPath)
-$shortcut.TargetPath = $ps
-$shortcut.Arguments = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$target`""
-$shortcut.WorkingDirectory = $rootDir
-$shortcut.WindowStyle = 7
-$shortcut.Description = 'Otmena: DS/YT + Telegram'
-$shortcut.Save()
+& (Join-Path $PSScriptRoot 'ensure-autostart.ps1')
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "Startup shortcut: $linkPath"
-
-& (Join-Path $PSScriptRoot 'ensure-xray.ps1') -Quiet | Out-Null
-& (Join-Path $PSScriptRoot 'telegram-vless-daemon.ps1') -Quiet | Out-Null
-& (Join-Path $PSScriptRoot 'set-telegram-socks.ps1') -Quiet 2>$null | Out-Null
-Write-Host 'Done. Telegram should ask to enable SOCKS 127.0.0.1:10808.'
+try {
+    & (Join-Path $PSScriptRoot 'launcher.ps1') -Action start -Quiet
+} catch {
+    Write-Host "Start now failed: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+Write-Host 'Done. Autostart = full Start (DS/YT + Telegram + Cursor Europe).'
