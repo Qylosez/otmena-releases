@@ -89,6 +89,9 @@
           "fingerprint": "qq",
           "publicKey": "SbVKOEMjK0sIlbwg4akyBg5mL5KZwwB-ed4eEE7YnRc",
           "shortId": "d7e1abac"
+        },
+        "sockopt": {
+          "dialerProxy": "fragment"
         }
       }
     },
@@ -151,6 +154,9 @@
         "wsSettings": {
           "path": "/ws",
           "host": "wa9648874.devs.dance"
+        },
+        "sockopt": {
+          "dialerProxy": "fragment"
         }
       }
     },
@@ -183,6 +189,9 @@
         "grpcSettings": {
           "serviceName": "grpcservice",
           "multiMode": false
+        },
+        "sockopt": {
+          "dialerProxy": "fragment"
         }
       }
     },
@@ -223,8 +232,13 @@
       "settings": {
         "fragment": {
           "packets": "tlshello",
-          "length": "100-200",
-          "interval": "10-20"
+          "length": "10-20",
+          "interval": "1-5"
+        }
+      },
+      "streamSettings": {
+        "sockopt": {
+          "dialerProxy": "proxy-ws-2"
         }
       }
     },

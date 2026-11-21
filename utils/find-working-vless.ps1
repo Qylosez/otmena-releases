@@ -167,9 +167,19 @@ if ($profileList.Count -gt 0 -and [string]$profileList[0] -match '^([^:]+):') { 
 
 try {
     Stop-Xray
+    $fullRaw = ''
+    try { $fullRaw = Get-Content -LiteralPath $configFile -Raw } catch {}
+    $chained = ($fullRaw -match '"dialerProxy": "proxy-ws-2"')
     $fullTcpDead = $false
     if ($profileList.Count -gt 0 -and [string]$profileList[0] -notmatch '/hysteria' -and [string]$profileList[0] -match '^([^:]+):(\d+)/') {
         if (-not (Test-RemoteTcpQuick $Matches[1] ([int]$Matches[2]))) { $fullTcpDead = $true }
+    }
+    if ($fullTcpDead -and $chained) {
+        # The country address is blackholed here. The config dials it through
+        # the YouTube exit, so a dead direct TCP is not a dead tunnel.
+        Write-ProbeLog ("country tcp=0, dials through youtube exit {0}" -f $profileList[0])
+        $fullTcpDead = $false
+        if ($TimeoutSec -lt 8) { $TimeoutSec = 8 }
     }
     if ($fullTcpDead) {
         $script:LastCurlCode = '000'

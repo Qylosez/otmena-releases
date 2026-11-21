@@ -291,11 +291,22 @@ $hostLine        "path": $(Get-JsonString $link.Path)
       }
 "@)
     }
+    # The YouTube exit sniffs a whole ClientHello and follows its SNI, so a
+    # tunnel to the country server only authenticates when the hello is split.
+    # The exit itself must dial straight out, or the chain loops.
+    $isRelay = $false
+    if ($script:ChainViaRelay -and $link.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$link.Uuid -and ([string]$link.Uuid -ne [string]$script:PrimaryUuid) -and -not $script:RelaySeen) {
+        $isRelay = $true
+        $script:RelaySeen = $true
+    }
     # Port 443 is where the filter drops a whole ClientHello, so split it.
     # On 8444/8443 the TCP handshake already succeeds and a split hello just
-    # hangs until curl gives up, so those ports go out in one piece.
+    # hangs until curl gives up, so those ports go out in one piece — unless
+    # the country address is reached through the YouTube exit.
     $fragThis = $false
-    if ($Fragment -eq 'force' -or $Fragment -eq 'tiny') { $fragThis = $true }
+    if ($isRelay) { $fragThis = $false }
+    elseif ($Fragment -eq 'force' -or $Fragment -eq 'tiny') { $fragThis = $true }
+    elseif ($script:ChainViaRelay -and $Fragment -ne 'off') { $fragThis = $true }
     elseif ($Fragment -ne 'off' -and [int]$link.Port -eq 443) { $fragThis = $true }
     if ($fragThis) {
         $script:NeedFragment = $true
@@ -571,6 +582,14 @@ if ($ProfileIndex -ge 0 -and $ProfileIndex -lt $unique.Count) {
 }
 
 $script:NeedFragment = $false
+$script:ChainViaRelay = $false
+$script:RelaySeen = $false
+foreach ($l in $unique) {
+    if ($l.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$l.Uuid -and ([string]$l.Uuid -ne [string]$script:PrimaryUuid)) {
+        $script:ChainViaRelay = $true
+        break
+    }
+}
 $usedTags = New-Object System.Collections.Generic.List[string]
 $outboundJson = @()
 $selectorTags = @()
@@ -586,9 +605,29 @@ if ($Single -and $selectorTags.Count -gt 1) {
 
 $fallback = $selectorTags[0]
 $selectorJson = ($selectorTags | ForEach-Object { Get-JsonString $_ }) -join ', '
+$relayTag = ''
+for ($ri = 0; $ri -lt $unique.Count -and $ri -lt $selectorTags.Count; $ri++) {
+    $rl = $unique[$ri]
+    if ($rl.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$rl.Uuid -and ([string]$rl.Uuid -ne [string]$script:PrimaryUuid)) {
+        $relayTag = $selectorTags[$ri]
+        break
+    }
+}
 $fragLen = '100-200'
 $fragIv = '10-20'
 if ($Fragment -eq 'tiny') { $fragLen = '1-3'; $fragIv = '1-5' }
+elseif ($relayTag -and $relayTag -ne $fallback) { $fragLen = '10-20'; $fragIv = '1-5' }
+$fragmentDial = ''
+if ($relayTag -and $relayTag -ne $fallback) {
+    $fragmentDial = @"
+,
+      "streamSettings": {
+        "sockopt": {
+          "dialerProxy": "$relayTag"
+        }
+      }
+"@
+}
 $fragmentJson = @"
     {
       "tag": "fragment",
@@ -599,7 +638,7 @@ $fragmentJson = @"
           "length": "$fragLen",
           "interval": "$fragIv"
         }
-      }
+      }$fragmentDial
     }
 "@
 if ($script:NeedFragment) {
@@ -656,17 +695,10 @@ $directRule
   },
 "@
 } else {
-    # The YouTube exit is a different server. It answers 403 for Cursor, so it
-    # must not carry Cursor, but it still completes HTTPS when the Germany IP
-    # is blackholed. Telegram stays on that exit. Cursor stays on the EU route.
-    $relayTag = ''
-    for ($ri = 0; $ri -lt $unique.Count -and $ri -lt $selectorTags.Count; $ri++) {
-        $rl = $unique[$ri]
-        if ($rl.Type -eq 'ws' -and $script:PrimaryUuid -and [string]$rl.Uuid -and ([string]$rl.Uuid -ne [string]$script:PrimaryUuid)) {
-            $relayTag = $selectorTags[$ri]
-            break
-        }
-    }
+    # The YouTube exit answers 403 for Cursor, so Cursor must not exit there.
+    # Its TCP to the country server is blackholed from this ISP, and that exit
+    # can still open the country port. Split the hello so the exit keeps the
+    # dialed IP instead of following the SNI. Telegram uses the exit directly.
     if ($relayTag -and $relayTag -ne $fallback) {
         $proxyRules = @"
       {

@@ -7,5 +7,5 @@
     "grpc"
   ],
   "probeUrl": "https://api2.cursor.sh",
-  "notes": "vpn.dance VLESS USA 45.76.0.233 (Reality SNI yahoo.com, until 23.11.2026). Cursor route is plain TCP 8444 sid d7e1abac. TCP 443 sid 189cfa69, WS-TLS 8447 wa9648874.devs.dance and gRPC 8443 sid d7e1a2bb also open api2.cursor.sh. This key has no auto-location. Telegram SOCKS 10808 stays on YouTube 194.55.244.117 WS 8447 w14f2e574.devs.dance so a dead USA IP does not take Telegram down. That exit returns 403 for Cursor and is not the Cursor route. HTTP 10809, SOCKS 10810. RU sites go direct."
+  "notes": "vpn.dance VLESS USA 45.76.0.233 (Reality SNI yahoo.com, until 23.11.2026). Cursor reaches TCP 8444 sid d7e1abac through YouTube 194.55.244.117 because the direct USA address is blackholed. The ClientHello is split so that exit keeps the dialed IP. TCP 443, WS 8447 and gRPC 8443 use the same chain. Telegram SOCKS 10808 stays on YouTube WS 8447 w14f2e574.devs.dance directly. That exit returns 403 for Cursor and is not the Cursor exit. HTTP 10809, SOCKS 10810. RU sites go direct."
 }
